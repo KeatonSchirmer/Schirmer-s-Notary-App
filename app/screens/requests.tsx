@@ -48,34 +48,34 @@ export default function Requests({ navigation }: RequestsProps) {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: darkMode ? '#18181b' : '#f9fafb' }}>
       <ScrollView style={{ flex: 1, padding: 16 }}>
-        <div className="mb-4">
-        <div className="flex border-b border-gray-300">
-          <button
-            className={`flex-1 py-2 text-center font-semibold transition-colors duration-150 ${filter === 'all' ? 'border-b-4 border-blue-600 text-blue-600 bg-white' : 'text-gray-500 bg-gray-100'}`}
-            onClick={() => setFilter('all')}
-          >
-            All
-          </button>
-          <button
-            className={`flex-1 py-2 text-center font-semibold transition-colors duration-150 ${filter === 'pending' ? 'border-b-4 border-blue-600 text-blue-600 bg-white' : 'text-gray-500 bg-gray-100'}`}
-            onClick={() => setFilter('pending')}
-          >
-            Pending
-          </button>
-          <button
-            className={`flex-1 py-2 text-center font-semibold transition-colors duration-150 ${filter === 'accepted' ? 'border-b-4 border-green-600 text-green-600 bg-white' : 'text-gray-500 bg-gray-100'}`}
-            onClick={() => setFilter('accepted')}
-          >
-            Accepted
-          </button>
-          <button
-            className={`flex-1 py-2 text-center font-semibold transition-colors duration-150 ${filter === 'denied' ? 'border-b-4 border-red-600 text-red-600 bg-white' : 'text-gray-500 bg-gray-100'}`}
-            onClick={() => setFilter('denied')}
-          >
-            Declined
-          </button>
-        </div>
-      </div>
+        <View style={{ marginBottom: 16 }}>
+          <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#d1d5db' }}>
+            <TouchableOpacity
+              style={{ flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 4, borderBottomColor: filter === 'all' ? '#2563eb' : 'transparent', backgroundColor: filter === 'all' ? '#fff' : '#f3f4f6' }}
+              onPress={() => setFilter('all')}
+            >
+              <Text style={{ fontWeight: '600', color: filter === 'all' ? '#2563eb' : '#6b7280' }}>All</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 4, borderBottomColor: filter === 'pending' ? '#2563eb' : 'transparent', backgroundColor: filter === 'pending' ? '#fff' : '#f3f4f6' }}
+              onPress={() => setFilter('pending')}
+            >
+              <Text style={{ fontWeight: '600', color: filter === 'pending' ? '#2563eb' : '#6b7280' }}>Pending</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 4, borderBottomColor: filter === 'accepted' ? '#22c55e' : 'transparent', backgroundColor: filter === 'accepted' ? '#fff' : '#f3f4f6' }}
+              onPress={() => setFilter('accepted')}
+            >
+              <Text style={{ fontWeight: '600', color: filter === 'accepted' ? '#22c55e' : '#6b7280' }}>Accepted</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 4, borderBottomColor: filter === 'denied' ? '#ef4444' : 'transparent', backgroundColor: filter === 'denied' ? '#fff' : '#f3f4f6' }}
+              onPress={() => setFilter('denied')}
+            >
+              <Text style={{ fontWeight: '600', color: filter === 'denied' ? '#ef4444' : '#6b7280' }}>Declined</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
         {loading ? (
           <Text style={{ color: darkMode ? '#d1d5db' : '#6b7280' }}>Loading...</Text>
         ) : error ? (

@@ -93,7 +93,7 @@ export default function Mileage() {
 
     if (distance > 0) {
       try {
-        await apiRequest("/mileage", "POST", {
+        await apiRequest("https://schirmer-s-notary-backend.onrender.com/mileage", "POST", {
           miles: parseFloat(distance.toFixed(2)),
           purpose: "Tracked Trip",
           time: timeTraveled,

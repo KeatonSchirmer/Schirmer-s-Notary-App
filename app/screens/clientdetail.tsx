@@ -159,6 +159,12 @@ export default function ClientDetail({ route, navigation }: { route: any, naviga
         </View>
         <View style={{ backgroundColor: darkMode ? '#27272a' : '#fff', padding: 16, borderRadius: 16, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8 }}>
           <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 8, color: darkMode ? '#fff' : '#222' }}>Request/Service History</Text>
+          <TouchableOpacity
+            style={{ backgroundColor: '#2563eb', borderRadius: 8, padding: 10, marginBottom: 12, alignSelf: 'flex-end' }}
+            onPress={() => Alert.alert('View PDFs', 'This will show saved PDFs for this client.')}
+          >
+            <Text style={{ color: '#fff', textAlign: 'center' }}>View Saved PDFs</Text>
+          </TouchableOpacity>
           {companyRequests.length === 0 ? (
             <Text style={{ color: darkMode ? '#d1d5db' : '#6b7280' }}>No past requests.</Text>
           ) : (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, Alert, Switch } from "react-native";
 import apiRequest from "../api";
 import * as LocalAuthentication from "expo-local-authentication";
 import * as SecureStore from "expo-secure-store";
@@ -22,6 +22,37 @@ export default function LoginScreen({ navigation, setLoggedIn }: { navigation?: 
     checkBiometric();
   }, []);
 
+  useEffect(() => {
+    // Automatically try biometric login if enabled and available
+    const tryBiometricLogin = async () => {
+      if (biometricAvailable && biometricOptIn) {
+        try {
+          const result = await LocalAuthentication.authenticateAsync({ promptMessage: "Authenticate to sign in" });
+          if (result.success) {
+            const savedEmail = await SecureStore.getItemAsync("biometricEmail");
+            const savedPassword = await SecureStore.getItemAsync("biometricPassword");
+            if (savedEmail && savedPassword) {
+              setLoading(true);
+              try {
+                const data = await apiRequest("https://schirmer-s-notary-backend.onrender.com/auth/login", "POST", {
+                  email: savedEmail,
+                  password: savedPassword,
+                  role: "admin"
+                });
+                setLoggedIn(true);
+              } catch (err: any) {
+              } finally {
+                setLoading(false);
+              }
+            }
+          }
+        } catch (err: any) {
+        }
+      }
+    };
+    tryBiometricLogin();
+  }, [biometricAvailable, biometricOptIn]);
+
   const handleLogin = async () => {
     setLoading(true);
     try {
@@ -31,28 +62,10 @@ export default function LoginScreen({ navigation, setLoggedIn }: { navigation?: 
         role: "admin"
       });
       setLoggedIn(true);
-      if (biometricAvailable) {
-        Alert.alert(
-          "Enable Biometric Login?",
-          "Would you like to use biometrics to sign in next time?",
-          [
-            {
-              text: "No",
-              onPress: async () => {
-                await SecureStore.setItemAsync("biometricOptIn", "false");
-              },
-              style: "cancel"
-            },
-            {
-              text: "Yes",
-              onPress: async () => {
-                await SecureStore.setItemAsync("biometricOptIn", "true");
-                await SecureStore.setItemAsync("biometricEmail", email);
-                await SecureStore.setItemAsync("biometricPassword", password);
-              }
-            }
-          ]
-        );
+      // If biometric is enabled, update credentials
+      if (biometricAvailable && biometricOptIn) {
+        await SecureStore.setItemAsync("biometricEmail", email);
+        await SecureStore.setItemAsync("biometricPassword", password);
       }
     } catch (err: any) {
     } finally {
@@ -87,11 +100,18 @@ export default function LoginScreen({ navigation, setLoggedIn }: { navigation?: 
           } finally {
             setLoading(false);
           }
-        } else {
         }
-      } else {
       }
     } catch (err: any) {
+    }
+  };
+
+  const handleBiometricSwitch = async (value: boolean) => {
+    setBiometricOptIn(value);
+    await SecureStore.setItemAsync("biometricOptIn", value ? "true" : "false");
+    if (!value) {
+      await SecureStore.deleteItemAsync("biometricEmail");
+      await SecureStore.deleteItemAsync("biometricPassword");
     }
   };
 
@@ -123,12 +143,15 @@ export default function LoginScreen({ navigation, setLoggedIn }: { navigation?: 
         <Text className="text-white text-center text-lg">{loading ? "Signing In..." : "Sign In"}</Text>
       </TouchableOpacity>
       {biometricAvailable && (
-        <TouchableOpacity
-          className="bg-blue-600 rounded p-3 w-full mt-4"
-          onPress={handleBiometricLogin}
-        >
-          <Text className="text-white text-center text-lg">Sign In with Biometrics</Text>
-        </TouchableOpacity>
+        <View className="w-full flex-row items-center mt-4 mb-2">
+          <Switch
+            value={biometricOptIn}
+            onValueChange={handleBiometricSwitch}
+          />
+          <Text className="ml-3 text-lg" style={{ color: biometricOptIn ? '#2563eb' : '#888' }}>
+            Enable Biometric Login
+          </Text>
+        </View>
       )}
     </View>
   );

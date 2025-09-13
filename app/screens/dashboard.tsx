@@ -79,7 +79,7 @@ export default function Dashboard() {
 
   const handleAddClient = async () => {
         try {
-  await apiRequest("https://schirmer-s-notary-backend.onrender.com/clients", "POST", {
+  await apiRequest("https://schirmer-s-notary-backend.onrender.com/clients/", "POST", {
         name: clientName,
         email: clientEmail,
         company: company
@@ -94,7 +94,7 @@ export default function Dashboard() {
 
   const handleAddExpense = async () => {
     try {
-  await apiRequest("https://schirmer-s-notary-backend.onrender.com/finances", "POST", {
+  await apiRequest("https://schirmer-s-notary-backend.onrender.com/finances/", "POST", {
         category: expenseCategory,
         amount: parseFloat(expenseAmount),
         description: expenseDescription,
@@ -119,7 +119,7 @@ export default function Dashboard() {
         <Text style={{ color: darkMode ? '#d1d5db' : '#6b7280', marginBottom: 24 }}>{new Date().toDateString()}</Text>
 
         <TouchableOpacity
-          onPress={() => navigation.navigate("Calendar" as never)}
+            onPress={() => (navigation as any).navigate("More", { screen: "Calendar" })}
         >
         <View style={{ backgroundColor: darkMode ? '#27272a' : '#fff', padding: 16, borderRadius: 16, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, marginBottom: 16 }}>
           <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 12, color: darkMode ? '#fff' : '#222' }}>Today's Appointments</Text>

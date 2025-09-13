@@ -1,22 +1,55 @@
 import { View, Text, TouchableOpacity } from "react-native";
+import * as DocumentPicker from 'expo-document-picker';
+import { TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import apiRequest from "../../api";
 import React, { useState, useEffect } from "react";
 import { useTheme } from "../../constants/ThemeContext";
 
 export default function RequestDetail({ route }: { route: any }) {
-  const { id } = route.params;
-  const [request, setRequest] = React.useState<any>(null);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState("");
+  async function uploadPDF() {
+    const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf' });
+    if (result.assets && result.assets.length > 0) {
+      const { uri, name } = result.assets[0];
+      const userId = 1;
+
+      const formData = new FormData();
+      formData.append('file', {
+        uri,
+        name,
+        type: 'application/pdf',
+      } as any);
+
+      const response = await fetch('https://schirmer-s-notary-backend.onrender.com/pdfs/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'X-User-Id': String(userId),
+        },
+        body: formData,
+      });
+
+      if (response.ok) {
+        alert('PDF uploaded successfully!');
+      } else {
+        alert('Failed to upload PDF.');
+      }
+    }
+  }
+  const [editLocation, setEditLocation] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editTime, setEditTime] = useState("");
+  const [request, setRequest] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const { darkMode } = useTheme();
 
-  React.useEffect(() => {
+  useEffect(() => {
     async function fetchRequestDetail() {
       setLoading(true);
       setError("");
       try {
-  const data = await apiRequest(`https://schirmer-s-notary-backend.onrender.com/jobs/admin/request/${id}`);
+        const data = await apiRequest(`https://schirmer-s-notary-backend.onrender.com/jobs/admin/request/${route.params.id}`);
         setRequest(data);
       } catch (err) {
         setError("Failed to load request details");
@@ -25,7 +58,26 @@ export default function RequestDetail({ route }: { route: any }) {
       }
     }
     fetchRequestDetail();
-  }, [id]);
+  }, [route.params.id]);
+
+  const handleDeleteRequest = async () => {
+    if (!request) return;
+    let endpoint = "";
+    if (request.status === "accepted") {
+      endpoint = `https://schirmer-s-notary-backend.onrender.com/jobs/admin/accepted/${request.id}`;
+    } else if (request.status === "denied") {
+      endpoint = `https://schirmer-s-notary-backend.onrender.com/jobs/admin/denied/${request.id}`;
+    } else {
+      endpoint = `https://schirmer-s-notary-backend.onrender.com/jobs/admin/request/${request.id}`;
+    }
+    try {
+      await apiRequest(endpoint, "DELETE");
+      alert("Request deleted successfully.");
+    } catch (err) {
+      alert("Failed to delete request.");
+    }
+  };
+
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: darkMode ? '#18181b' : '#f9fafb' }}>
@@ -42,8 +94,69 @@ export default function RequestDetail({ route }: { route: any }) {
               <Text style={{ color: darkMode ? '#d1d5db' : '#6b7280', marginBottom: 8 }}>Type: {request.document_type}</Text>
               <Text style={{ color: darkMode ? '#d1d5db' : '#6b7280', marginBottom: 8 }}>Status: {request.status}</Text>
               <Text style={{ color: darkMode ? '#d1d5db' : '#6b7280', marginBottom: 8 }}>Service: {request.service}</Text>
-              <Text style={{ color: darkMode ? '#d1d5db' : '#6b7280', marginBottom: 8 }}>Date: {request.service_date}</Text>
-              <Text style={{ color: darkMode ? '#d1d5db' : '#6b7280', marginBottom: 8 }}>Location: {request.location}</Text>
+              {/* Editable fields for accepted requests */}
+              {request.status === 'accepted' ? (
+                <>
+                  <Text style={{ color: darkMode ? '#d1d5db' : '#6b7280', marginBottom: 4 }}>Date:</Text>
+                  <TextInput
+                    value={editDate || request.service_date || ""}
+                    onChangeText={setEditDate}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={darkMode ? '#888' : '#999'}
+                    style={{ borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 8, padding: 8, marginBottom: 8, color: darkMode ? '#fff' : '#222', backgroundColor: darkMode ? '#18181b' : '#fff' }}
+                  />
+                  <Text style={{ color: darkMode ? '#d1d5db' : '#6b7280', marginBottom: 4 }}>Time:</Text>
+                  <TextInput
+                    value={editTime}
+                    onChangeText={setEditTime}
+                    placeholder="HH:MM (24hr)"
+                    placeholderTextColor={darkMode ? '#888' : '#999'}
+                    style={{ borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 8, padding: 8, marginBottom: 8, color: darkMode ? '#fff' : '#222', backgroundColor: darkMode ? '#18181b' : '#fff' }}
+                  />
+                  <Text style={{ color: darkMode ? '#d1d5db' : '#6b7280', marginBottom: 4 }}>Location:</Text>
+                  <TextInput
+                    value={editLocation || request.location || ""}
+                    onChangeText={setEditLocation}
+                    placeholder="Enter location"
+                    placeholderTextColor={darkMode ? '#888' : '#999'}
+                    style={{ borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 8, padding: 8, marginBottom: 8, color: darkMode ? '#fff' : '#222', backgroundColor: darkMode ? '#18181b' : '#fff' }}
+                  />
+                  <TouchableOpacity style={{ backgroundColor: '#22c55e', borderRadius: 8, padding: 10, marginBottom: 8 }} onPress={async () => {
+                    let serviceDate = editDate || request.service_date || "";
+                    if (editTime) {
+                      serviceDate = `${serviceDate}T${editTime}`;
+                    }
+                    try {
+                      await apiRequest(`https://schirmer-s-notary-backend.onrender.com/jobs/admin/accepted/${request.id}/edit`, "PATCH", {
+                        location: editLocation || request.location || "",
+                        service_date: serviceDate,
+                      });
+                      alert("Request updated successfully.");
+                    } catch (err) {
+                      alert("Failed to update request.");
+                    }
+                  }}>
+                    <Text style={{ color: '#fff', textAlign: 'center' }}>Save Changes</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <Text style={{ color: darkMode ? '#d1d5db' : '#6b7280', marginBottom: 8 }}>Date: {request.service_date}</Text>
+                  <Text style={{ color: darkMode ? '#d1d5db' : '#6b7280', marginBottom: 8 }}>Location: {request.location}</Text>
+                </>
+              )}
+              <TouchableOpacity
+                style={{ backgroundColor: '#2563eb', borderRadius: 8, padding: 10, marginTop: 12, alignSelf: 'flex-end' }}
+                onPress={uploadPDF}
+              >
+                <Text style={{ color: '#fff', textAlign: 'center' }}>Scan & Upload PDF</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ backgroundColor: '#ef4444', borderRadius: 8, padding: 10, marginTop: 12, alignSelf: 'flex-end' }}
+                onPress={handleDeleteRequest}
+              >
+                <Text style={{ color: '#fff', textAlign: 'center' }}>Delete Request</Text>
+              </TouchableOpacity>
             </>
           ) : null}
         </View>
