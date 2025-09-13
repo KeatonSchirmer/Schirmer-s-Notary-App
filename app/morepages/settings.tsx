@@ -42,7 +42,7 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
       }
       const tokenData = await Notifications.getExpoPushTokenAsync();
       setExpoPushToken(tokenData.data);
-  await apiRequest('/profile/update', 'PATCH', { push_token: tokenData.data } as any, { 'X-User-Id': String(userId) });
+  await apiRequest('https://schirmer-s-notary-backend.onrender.com/profile/update', 'PATCH', { push_token: tokenData.data } as any, { 'X-User-Id': String(userId) });
     } catch (err) {
   const errorMsg = (err && typeof err === 'object' && 'message' in err) ? (err as any).message : JSON.stringify(err);
   Alert.alert('Error', `Could not register for notifications: ${errorMsg}`);
@@ -55,12 +55,14 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
   const [newPassword, setNewPassword] = useState("");
   const [show2FAModal, setShow2FAModal] = useState(false);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [show2FAEmailSent, setShow2FAEmailSent] = useState(false);
+  const [confirmationCode, setConfirmationCode] = useState("");
 
   const userId = 1;
 
   const handleUpdateEmail = async () => {
     try {
-  await apiRequest('/profile/update', 'PATCH', { email: newEmail } as any, { 'X-User-Id': String(userId) });
+  await apiRequest('https://schirmer-s-notary-backend.onrender.com/profile/update', 'PATCH', { email: newEmail } as any, { 'X-User-Id': String(userId) });
       Alert.alert("Success", "Email updated successfully.");
       setShowEmailModal(false);
     } catch (err) {
@@ -70,7 +72,7 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
 
   const handleChangePassword = async () => {
     try {
-  await apiRequest('/auth/change-password', 'PATCH', { password: newPassword } as any, { 'X-User-Id': String(userId) });
+  await apiRequest('https://schirmer-s-notary-backend.onrender.com/auth/change-password', 'PATCH', { password: newPassword } as any, { 'X-User-Id': String(userId) });
       Alert.alert("Success", "Password changed successfully.");
       setShowPasswordModal(false);
     } catch (err) {
@@ -78,14 +80,26 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
     }
   };
 
-  const handleToggle2FA = async () => {
+  const handleRequest2FA = async () => {
     try {
-  await apiRequest('/profile/update', 'PATCH', { two_factor_enabled: !twoFactorEnabled } as any, { 'X-User-Id': String(userId) });
-      setTwoFactorEnabled(!twoFactorEnabled);
-      Alert.alert("Success", `Two-Factor Authentication ${!twoFactorEnabled ? "enabled" : "disabled"}`);
-      setShow2FAModal(false);
+      await apiRequest('https://schirmer-s-notary-backend.onrender.com/profile/2fa-request', 'POST', null, { 'X-User-Id': String(userId) });
+      setShow2FAEmailSent(true);
+      Alert.alert("Confirmation Email Sent", "Check your email for a code to enable 2FA.");
     } catch (err) {
-      Alert.alert("Error", "Failed to update Two-Factor Authentication.");
+      Alert.alert("Error", "Failed to send confirmation email.");
+    }
+  };
+
+  const handleConfirm2FA = async () => {
+    try {
+      await apiRequest('https://schirmer-s-notary-backend.onrender.com/profile/2fa-confirm', 'POST', { code: confirmationCode } as any, { 'X-User-Id': String(userId) });
+      setTwoFactorEnabled(true);
+      setShow2FAModal(false);
+      setShow2FAEmailSent(false);
+      setConfirmationCode("");
+      Alert.alert("Success", "Two-Factor Authentication enabled.");
+    } catch (err) {
+      Alert.alert("Error", "Invalid or expired code.");
     }
   };
 
@@ -93,12 +107,12 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
     setNotifications(value);
     await AsyncStorage.setItem('notifications_enabled', value ? 'true' : 'false');
     try {
-  await apiRequest('/profile/update', 'PATCH', { notifications_enabled: value } as any, { 'X-User-Id': String(userId) });
+  await apiRequest('https://schirmer-s-notary-backend.onrender.com/profile/update', 'PATCH', { notifications_enabled: value } as any, { 'X-User-Id': String(userId) });
       if (value) {
         await registerForPushNotificationsAsync();
       } else {
         setExpoPushToken(null);
-  await apiRequest('/profile/update', 'PATCH', { push_token: null } as any, { 'X-User-Id': String(userId) });
+  await apiRequest('https://schirmer-s-notary-backend.onrender.com/profile/update', 'PATCH', { push_token: null } as any, { 'X-User-Id': String(userId) });
       }
     } catch (err) {
       Alert.alert("Error", "Failed to update notifications.");
@@ -120,7 +134,7 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
           style: "destructive",
           onPress: async () => {
             try {
-              await apiRequest('/profile/delete', 'DELETE', null, { 'X-User-Id': String(userId) });
+              await apiRequest('https://schirmer-s-notary-backend.onrender.com/profile/delete', 'DELETE', null, { 'X-User-Id': String(userId) });
               Alert.alert("Account Deleted", "Your account has been deleted.");
             } catch (err) {
               Alert.alert("Error", "Failed to delete account.");
@@ -236,10 +250,34 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
           <View style={{ backgroundColor: darkMode ? "#27272a" : "#fff", padding: 20, borderRadius: 10, width: "80%" }}>
             <Text style={{ fontSize: 18, fontWeight: "600", marginBottom: 8, color: darkMode ? "#fff" : "#222" }}>Two-Factor Authentication</Text>
             <Text style={{ color: darkMode ? "#d1d5db" : "#222", marginBottom: 16 }}>Enable extra security for your account.</Text>
-            <TouchableOpacity style={{ backgroundColor: "#16a34a", borderRadius: 8, padding: 10, marginBottom: 8 }} onPress={handleToggle2FA}>
-              <Text style={{ color: "#fff", textAlign: "center" }}>{twoFactorEnabled ? "Disable" : "Enable"}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={{ backgroundColor: darkMode ? "#444" : "#e5e7eb", borderRadius: 8, padding: 10 }} onPress={() => setShow2FAModal(false)}>
+            {!twoFactorEnabled && !show2FAEmailSent && (
+              <TouchableOpacity style={{ backgroundColor: "#16a34a", borderRadius: 8, padding: 10, marginBottom: 8 }} onPress={handleRequest2FA}>
+                <Text style={{ color: "#fff", textAlign: "center" }}>Send Confirmation Email</Text>
+              </TouchableOpacity>
+            )}
+            {show2FAEmailSent && !twoFactorEnabled && (
+              <>
+                <TextInput
+                  placeholder="Enter confirmation code"
+                  value={confirmationCode}
+                  onChangeText={setConfirmationCode}
+                  style={{ borderWidth: 1, borderColor: darkMode ? "#444" : "#ccc", borderRadius: 5, padding: 8, marginBottom: 10, color: darkMode ? "#fff" : "#222", backgroundColor: darkMode ? "#18181b" : "#fff" }}
+                  autoCapitalize="none"
+                  placeholderTextColor={darkMode ? "#888" : "#999"}
+                />
+                <TouchableOpacity style={{ backgroundColor: "#16a34a", borderRadius: 8, padding: 10, marginBottom: 8 }} onPress={handleConfirm2FA}>
+                  <Text style={{ color: "#fff", textAlign: "center" }}>Confirm 2FA Setup</Text>
+                </TouchableOpacity>
+              </>
+            )}
+            {twoFactorEnabled && (
+              <Text style={{ color: "#16a34a", marginBottom: 8 }}>Two-Factor Authentication is enabled.</Text>
+            )}
+            <TouchableOpacity style={{ backgroundColor: darkMode ? "#444" : "#e5e7eb", borderRadius: 8, padding: 10 }} onPress={() => {
+              setShow2FAModal(false);
+              setShow2FAEmailSent(false);
+              setConfirmationCode("");
+            }}>
               <Text style={{ color: darkMode ? "#fff" : "#222", textAlign: "center" }}>Cancel</Text>
             </TouchableOpacity>
           </View>

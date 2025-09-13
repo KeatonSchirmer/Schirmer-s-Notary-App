@@ -16,7 +16,7 @@ export default function RequestDetail({ route }: { route: any }) {
       setLoading(true);
       setError("");
       try {
-  const data = await apiRequest(`/jobs/admin/request/${id}`);
+  const data = await apiRequest(`https://schirmer-s-notary-backend.onrender.com/jobs/admin/request/${id}`);
         setRequest(data);
       } catch (err) {
         setError("Failed to load request details");

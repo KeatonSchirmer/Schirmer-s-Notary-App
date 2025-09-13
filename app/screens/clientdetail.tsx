@@ -27,7 +27,7 @@ export default function ClientDetail({ route, navigation }: { route: any, naviga
     try {
       if (!company || company === "Other" || company === "" || company === null) {
         // Fetch all clients without a company
-    const res = await apiRequest("/clients/all");
+    const res = await apiRequest("https://schirmer-s-notary-backend.onrender.com/clients/all");
         const clientOnly = (res.clients || []).filter((c: any) => !c.company || c.company === "" || c.company === null);
         // Only show the selected client (from navigation)
         if (route.params && route.params.clientId) {
@@ -38,7 +38,7 @@ export default function ClientDetail({ route, navigation }: { route: any, naviga
         }
         setIsClientOnly(true);
       } else {
-  const res = await apiRequest(`/clients/company/${encodeURIComponent(company)}`);
+  const res = await apiRequest(`https://schirmer-s-notary-backend.onrender.com/clients/company/${encodeURIComponent(company)}`);
         setContacts(res.contacts || []);
         setIsClientOnly(false);
       }
@@ -63,7 +63,7 @@ export default function ClientDetail({ route, navigation }: { route: any, naviga
   const handleEditContact = async () => {
     if (!editContact) return;
     try {
-  await apiRequest(`/contacts/${editContact.id}`, "PUT", {
+  await apiRequest(`https://schirmer-s-notary-backend.onrender.com/contacts/${editContact.id}`, "PUT", {
         name: editName,
         email: editEmail,
         company: editCompany,
@@ -80,7 +80,7 @@ export default function ClientDetail({ route, navigation }: { route: any, naviga
   const handleDeleteContact = async () => {
     if (!editContact) return;
     try {
-  await apiRequest(`/contacts/${editContact.id}`, "DELETE");
+  await apiRequest(`https://schirmer-s-notary-backend.onrender.com/contacts/${editContact.id}`, "DELETE");
       setEditModalVisible(false);
       Alert.alert("Success", "Contact deleted.");
       // If solo client, navigate back to clients screen to remove card immediately
@@ -99,7 +99,7 @@ export default function ClientDetail({ route, navigation }: { route: any, naviga
 
   const handleAddContact = async () => {
     try {
-  await apiRequest("/contacts", "POST", {
+  await apiRequest("https://schirmer-s-notary-backend.onrender.com/contacts", "POST", {
         name: newName,
         email: newEmail,
         company,
@@ -119,7 +119,7 @@ export default function ClientDetail({ route, navigation }: { route: any, naviga
   useEffect(() => {
     async function fetchCompanyRequests() {
       try {
-  const res = await apiRequest(`/jobs/company/requests/${encodeURIComponent(company)}`);
+    const res = await apiRequest(`https://schirmer-s-notary-backend.onrender.com/jobs/company/requests/${encodeURIComponent(company)}`);
         setCompanyRequests(res.requests || []);
       } catch {
         setCompanyRequests([]);

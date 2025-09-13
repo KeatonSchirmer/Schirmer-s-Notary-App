@@ -48,8 +48,8 @@ export default function Dashboard() {
       setLoading(true);
       setError("");
       try {
-  const appointmentsData = await apiRequest("/calendar/local", "GET", null, { "X-User-Id": String(userId) });
-  const requestsData = await apiRequest("/jobs/", "GET", null, { "X-User-Id": String(userId) });
+  const appointmentsData = await apiRequest("https://schirmer-s-notary-backend.onrender.com/calendar/local", "GET", null, { "X-User-Id": String(userId) });
+  const requestsData = await apiRequest("https://schirmer-s-notary-backend.onrender.com/jobs/", "GET", null, { "X-User-Id": String(userId) });
         setAppointments(appointmentsData.events || []);
         setRequests(requestsData || []);
       } catch (err) {
@@ -68,7 +68,7 @@ export default function Dashboard() {
   useEffect(() => {
     async function fetchMileage() {
       try {
-  const mileageData = await apiRequest("/mileage/weekly", "GET", null, { "X-User-Id": String(userId) });
+  const mileageData = await apiRequest("https://schirmer-s-notary-backend.onrender.com/mileage/weekly", "GET", null, { "X-User-Id": String(userId) });
         setMileage(mileageData.weekly_mileage || 0);
       } catch (err) {
         console.error(err);
@@ -77,10 +77,9 @@ export default function Dashboard() {
     fetchMileage();
   }, []);
 
-  // Add new client contact
   const handleAddClient = async () => {
         try {
-  await apiRequest("/clients", "POST", {
+  await apiRequest("https://schirmer-s-notary-backend.onrender.com/clients", "POST", {
         name: clientName,
         email: clientEmail,
         company: company
@@ -89,16 +88,13 @@ export default function Dashboard() {
       setClientName("");
       setClientEmail("");
       setCompany("");
-      Alert.alert("Success", "Client contact added.");
     } catch (err) {
-      Alert.alert("Error", "Failed to add client contact.");
     }
   };
 
-  // Add new expense or profit
   const handleAddExpense = async () => {
     try {
-  await apiRequest("/finances", "POST", {
+  await apiRequest("https://schirmer-s-notary-backend.onrender.com/finances", "POST", {
         category: expenseCategory,
         amount: parseFloat(expenseAmount),
         description: expenseDescription,
@@ -122,6 +118,9 @@ export default function Dashboard() {
         <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 8, color: darkMode ? '#fff' : '#222' }}>Hello, Keaton</Text>
         <Text style={{ color: darkMode ? '#d1d5db' : '#6b7280', marginBottom: 24 }}>{new Date().toDateString()}</Text>
 
+        <TouchableOpacity
+          onPress={() => navigation.navigate("Calendar" as never)}
+        >
         <View style={{ backgroundColor: darkMode ? '#27272a' : '#fff', padding: 16, borderRadius: 16, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, marginBottom: 16 }}>
           <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 12, color: darkMode ? '#fff' : '#222' }}>Today's Appointments</Text>
           {loading ? (
@@ -138,7 +137,11 @@ export default function Dashboard() {
             ))
           )}
         </View>
+        </TouchableOpacity>
 
+        <TouchableOpacity
+          onPress={() => navigation.navigate("Requests" as never)}
+        >
         <View style={{ backgroundColor: darkMode ? '#27272a' : '#fff', padding: 16, borderRadius: 16, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, marginBottom: 16 }}>
           <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 12, color: darkMode ? '#fff' : '#222' }}>Recent Requests</Text>
           {loading ? (
@@ -155,11 +158,16 @@ export default function Dashboard() {
             ))
           )}
         </View>
+        </TouchableOpacity>
 
+        <TouchableOpacity
+          onPress={() => navigation.navigate("Mileage" as never)}
+        >
         <View style={{ backgroundColor: darkMode ? '#27272a' : '#fff', padding: 16, borderRadius: 16, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, marginBottom: 32 }}>
           <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 12, color: darkMode ? '#fff' : '#222' }}>Mileage This Week</Text>
           <Text style={{ color: darkMode ? '#d1d5db' : '#6b7280' }}>{mileage} miles tracked</Text>
         </View>
+        </TouchableOpacity> 
 
         <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 16 }}>
           <TouchableOpacity

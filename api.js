@@ -1,6 +1,6 @@
 // api.js - Reusable API utility for React Native/Expo frontend
 
-const BASE_URL = 'http://192.168.0.218:5000';
+const BASE_URL = 'https://schirmer-s-notary-backend.onrender.com';
 
 async function apiRequest(endpoint, method = 'GET', data = null, headers = {}) {
   const config = {
@@ -13,17 +13,19 @@ async function apiRequest(endpoint, method = 'GET', data = null, headers = {}) {
   if (data) {
     config.body = JSON.stringify(data);
   }
-  const response = await fetch(`${BASE_URL}${endpoint}`, config);
-  const result = await response.json();
-  if (!response.ok) {
-    throw new Error(result.detail || 'API Error');
+  const url = endpoint.startsWith('http') ? endpoint : `${BASE_URL}${endpoint}`;
+  try {
+    const response = await fetch(url, config);
+    const result = await response.json();
+    if (!response.ok) {
+      console.error('API Error:', result);
+      throw new Error(result.detail || 'API Error');
+    }
+    return result;
+  } catch (err) {
+    console.error('Network/API Request Failed:', err);
+    throw err;
   }
-  return result;
 }
-
-// Example usage:
-// apiRequest('/auth/login', 'POST', { email, password, role })
-//   .then(data => ...)
-//   .catch(err => ...);
 
 export default apiRequest;

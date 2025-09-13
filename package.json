@@ -46,7 +46,9 @@
     "react-native-web": "~0.20.0",
     "react-native-webview": "13.13.5",
     "tailwind": "^4.0.0",
-    "expo-notifications": "~0.31.4"
+    "expo-notifications": "~0.31.4",
+    "expo-updates": "~0.28.17",
+    "expo-secure-store": "~14.2.4"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

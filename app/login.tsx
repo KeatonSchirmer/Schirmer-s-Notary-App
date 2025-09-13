@@ -2,64 +2,96 @@ import React, { useState, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
 import apiRequest from "../api";
 import * as LocalAuthentication from "expo-local-authentication";
+import * as SecureStore from "expo-secure-store";
 
 export default function LoginScreen({ navigation, setLoggedIn }: { navigation?: any; setLoggedIn: (val: boolean) => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [biometricOptIn, setBiometricOptIn] = useState(false);
 
   useEffect(() => {
-    const tryBiometricLogin = async () => {
-      try {
-        const hasHardware = await LocalAuthentication.hasHardwareAsync();
-        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-        if (!hasHardware || !isEnrolled) return;
-        const result = await LocalAuthentication.authenticateAsync({ promptMessage: "Authenticate to sign in" });
-        if (result.success) {
-          setLoggedIn(true);
-        }
-      } catch (err: any) {
-        // Silent fail, user can still use button
-      }
+    const checkBiometric = async () => {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+      setBiometricAvailable(hasHardware && isEnrolled);
+      const optIn = await SecureStore.getItemAsync("biometricOptIn");
+      setBiometricOptIn(optIn === "true");
     };
-    tryBiometricLogin();
+    checkBiometric();
   }, []);
 
   const handleLogin = async () => {
     setLoading(true);
     try {
-      const data = await apiRequest("http://192.168.0.218:5000/auth/login", "POST", {
+      const data = await apiRequest("https://schirmer-s-notary-backend.onrender.com/auth/login", "POST", {
         email,
         password,
         role: "admin"
       });
-      Alert.alert("Login Successful", "Welcome back!");
       setLoggedIn(true);
+      if (biometricAvailable) {
+        Alert.alert(
+          "Enable Biometric Login?",
+          "Would you like to use biometrics to sign in next time?",
+          [
+            {
+              text: "No",
+              onPress: async () => {
+                await SecureStore.setItemAsync("biometricOptIn", "false");
+              },
+              style: "cancel"
+            },
+            {
+              text: "Yes",
+              onPress: async () => {
+                await SecureStore.setItemAsync("biometricOptIn", "true");
+                await SecureStore.setItemAsync("biometricEmail", email);
+                await SecureStore.setItemAsync("biometricPassword", password);
+              }
+            }
+          ]
+        );
+      }
     } catch (err: any) {
-      Alert.alert("Login Failed", err.message || "Invalid credentials");
     } finally {
       setLoading(false);
     }
   };
 
   const handleBiometricLogin = async () => {
+    if (!biometricOptIn) {
+      return;
+    }
     try {
       const hasHardware = await LocalAuthentication.hasHardwareAsync();
-      const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
       const isEnrolled = await LocalAuthentication.isEnrolledAsync();
       if (!hasHardware || !isEnrolled) {
-        Alert.alert("Biometric Login Not Available", "No biometric authentication found on this device.");
         return;
       }
       const result = await LocalAuthentication.authenticateAsync({ promptMessage: "Authenticate to sign in" });
       if (result.success) {
-        Alert.alert("Biometric Login Successful", "Welcome back!");
-        setLoggedIn(true);
+        const savedEmail = await SecureStore.getItemAsync("biometricEmail");
+        const savedPassword = await SecureStore.getItemAsync("biometricPassword");
+        if (savedEmail && savedPassword) {
+          setLoading(true);
+          try {
+            const data = await apiRequest("https://schirmer-s-notary-backend.onrender.com/auth/login", "POST", {
+              email: savedEmail,
+              password: savedPassword,
+              role: "admin"
+            });
+            setLoggedIn(true);
+          } catch (err: any) {
+          } finally {
+            setLoading(false);
+          }
+        } else {
+        }
       } else {
-        Alert.alert("Biometric Login Failed", result.error || "Authentication failed");
       }
     } catch (err: any) {
-      Alert.alert("Biometric Error", err.message || "Could not authenticate");
     }
   };
 
@@ -90,12 +122,14 @@ export default function LoginScreen({ navigation, setLoggedIn }: { navigation?: 
       >
         <Text className="text-white text-center text-lg">{loading ? "Signing In..." : "Sign In"}</Text>
       </TouchableOpacity>
-      <TouchableOpacity
-        className="bg-blue-600 rounded p-3 w-full mt-4"
-        onPress={handleBiometricLogin}
-      >
-        <Text className="text-white text-center text-lg">Sign In with Biometrics</Text>
-      </TouchableOpacity>
+      {biometricAvailable && (
+        <TouchableOpacity
+          className="bg-blue-600 rounded p-3 w-full mt-4"
+          onPress={handleBiometricLogin}
+        >
+          <Text className="text-white text-center text-lg">Sign In with Biometrics</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }

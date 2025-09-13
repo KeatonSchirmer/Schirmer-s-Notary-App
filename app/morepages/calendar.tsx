@@ -46,7 +46,7 @@ export default function Calendar() {
       setLoading(true);
       setError("");
       try {
-  const data = await apiRequest("/calendar/local");
+  const data = await apiRequest("https://schirmer-s-notary-backend.onrender.com/calendar/local");
         setEvents(data.events || []);
       } catch (err) {
         setError("Failed to load events");

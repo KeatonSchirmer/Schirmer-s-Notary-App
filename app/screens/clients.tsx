@@ -33,7 +33,7 @@ const ClientsScreen: React.FC<ClientsScreenProps> = ({ navigation }) => {
       setLoading(true);
       setError("");
       try {
-  const data = await apiRequest("/clients/all");
+  const data = await apiRequest("https://schirmer-s-notary-backend.onrender.com/clients/all");
         setClients(data.clients || []);
       } catch (err) {
         setError("Failed to load clients");
@@ -43,7 +43,6 @@ const ClientsScreen: React.FC<ClientsScreenProps> = ({ navigation }) => {
     fetchClients();
   }, []);
 
-  // Group clients by company, but for clients with no company, use their name as the key
   const groupedClients: GroupedClients = clients.reduce((acc: GroupedClients, client: Client) => {
     const comp = client.company && client.company !== "" ? client.company : client.name;
     if (!acc[comp]) acc[comp] = [];
@@ -54,11 +53,10 @@ const ClientsScreen: React.FC<ClientsScreenProps> = ({ navigation }) => {
 
   const handleAddClient = async () => {
     if (!clientName || !clientEmail) {
-      Alert.alert("Missing info", "Please enter both name and email.");
       return;
     }
     try {
-  await apiRequest("/clients", "POST", {
+  await apiRequest("https://schirmer-s-notary-backend.onrender.com/clients", "POST", {
         name: clientName,
         email: clientEmail,
         company: company
@@ -67,12 +65,9 @@ const ClientsScreen: React.FC<ClientsScreenProps> = ({ navigation }) => {
       setClientName("");
       setClientEmail("");
       setCompany("");
-      Alert.alert("Success", "Client added.");
-      // Refresh client list
-  const data = await apiRequest("/clients/all");
+  const data = await apiRequest("https://schirmer-s-notary-backend.onrender.com/clients/all");
       setClients(data.clients || []);
     } catch (err) {
-      Alert.alert("Error", "Failed to add client.");
     }
   };
 
