@@ -10,7 +10,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
+const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoggedIn, setLoggedIn] = useState(false);
   const [user, setUser] = useState<any>(null);
 
@@ -23,12 +23,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     })();
   }, []);
 
+
   return (
     <AuthContext.Provider value={{ isLoggedIn, setLoggedIn, user, setUser }}>
       {children}
     </AuthContext.Provider>
   );
 };
+
+export default AuthProvider;
 
 export const useAuth = () => {
   const context = useContext(AuthContext);

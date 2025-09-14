@@ -10,7 +10,7 @@ import More from "./morepages/morestack";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import LoginScreen from "./login";
 import React, { useState } from "react";
-import { ThemeProvider, useTheme } from "../constants/ThemeContext";
+import ThemeProvider, { useTheme } from "../constants/ThemeContext";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();

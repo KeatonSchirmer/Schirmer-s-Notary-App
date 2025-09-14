@@ -1,4 +1,29 @@
 import React, { useState, useEffect } from "react";
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  // Admin availability modal state
+  const [availabilityModalVisible, setAvailabilityModalVisible] = useState(false);
+  const [availableDays, setAvailableDays] = useState<string[]>([]);
+  const [officeStart, setOfficeStart] = useState("09:00");
+  const [officeEnd, setOfficeEnd] = useState("17:00");
+  // Helper: toggle day selection
+  function toggleDay(day: string) {
+    setAvailableDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
+  }
+  // Save availability to backend
+  async function saveAvailability() {
+    try {
+      const payload = {
+        officeStart,
+        officeEnd,
+        availableDays,
+      };
+      await apiRequest("https://schirmer-s-notary-backend.onrender.com/calendar/availability", "POST", payload);
+      Alert.alert("Success", "Availability saved.");
+      setAvailabilityModalVisible(false);
+    } catch {
+      Alert.alert("Error", "Failed to save availability.");
+    }
+  }
 import * as AuthSession from 'expo-auth-session';
 import { useAuthRequest, makeRedirectUri, ResponseType } from 'expo-auth-session';
 import { View, Text, TouchableOpacity, ScrollView } from "react-native";
@@ -148,6 +173,64 @@ export default function Calendar() {
   return (
     <>
       <View style={{ flex: 1, backgroundColor: darkMode ? '#18181b' : '#f9fafb', padding: 16 }}>
+          <TouchableOpacity
+            style={{ backgroundColor: '#2563eb', padding: 10, borderRadius: 8, marginBottom: 12 }}
+            onPress={() => setAvailabilityModalVisible(true)}
+          >
+            <Text style={{ color: '#fff', textAlign: 'center', fontWeight: 'bold' }}>Set Availability (Admin)</Text>
+          </TouchableOpacity>
+      {/* Admin Availability Modal */}
+      <Modal visible={availabilityModalVisible} transparent animationType="slide">
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#00000088" }}>
+          <View style={{ backgroundColor: darkMode ? '#27272a' : '#fff', padding: 20, borderRadius: 10, width: "80%" }}>
+            <Text style={{ fontSize: 18, fontWeight: "600", marginBottom: 8, color: darkMode ? '#fff' : '#222' }}>Set Availability</Text>
+            <Text style={{ color: darkMode ? '#fff' : '#222', marginBottom: 8 }}>Available Days:</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 12 }}>
+              {WEEKDAYS.map(day => (
+                <TouchableOpacity
+                  key={day}
+                  style={{
+                    backgroundColor: availableDays.includes(day) ? '#22c55e' : darkMode ? '#444' : '#e5e7eb',
+                    borderRadius: 6,
+                    padding: 8,
+                    margin: 4,
+                  }}
+                  onPress={() => toggleDay(day)}
+                >
+                  <Text style={{ color: availableDays.includes(day) ? '#fff' : darkMode ? '#fff' : '#222', fontWeight: 'bold' }}>{day}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={{ color: darkMode ? '#fff' : '#222', marginBottom: 8 }}>Office Hours:</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+              <TextInput
+                style={{ borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 5, padding: 8, width: 80, color: darkMode ? '#fff' : '#222', backgroundColor: darkMode ? '#18181b' : '#fff', marginRight: 8 }}
+                value={officeStart}
+                onChangeText={setOfficeStart}
+                placeholder="Start (HH:MM)"
+                placeholderTextColor={darkMode ? '#888' : '#999'}
+              />
+              <Text style={{ color: darkMode ? '#fff' : '#222', marginRight: 8 }}>to</Text>
+              <TextInput
+                style={{ borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 5, padding: 8, width: 80, color: darkMode ? '#fff' : '#222', backgroundColor: darkMode ? '#18181b' : '#fff' }}
+                value={officeEnd}
+                onChangeText={setOfficeEnd}
+                placeholder="End (HH:MM)"
+                placeholderTextColor={darkMode ? '#888' : '#999'}
+              />
+            </View>
+            <TouchableOpacity
+              style={{ backgroundColor: '#22c55e', borderRadius: 8, padding: 10, marginBottom: 8 }}
+              onPress={saveAvailability}
+            >
+              <Text style={{ color: '#fff', textAlign: 'center' }}>Save Availability</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={{ backgroundColor: darkMode ? '#444' : '#e5e7eb', borderRadius: 8, padding: 10 }} onPress={() => setAvailabilityModalVisible(false)}>
+              <Text style={{ color: darkMode ? '#fff' : '#222', textAlign: 'center' }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
         <TouchableOpacity
           style={{ backgroundColor: '#2563eb', padding: 10, borderRadius: 8, marginBottom: 12 }}
           onPress={() => {

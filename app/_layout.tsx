@@ -1,7 +1,9 @@
 import { Stack } from 'expo-router';
 import './globals.css';
-import { ThemeProvider, useTheme } from '../constants/ThemeContext';
-import { AuthProvider } from '../constants/AuthContext';
+import ThemeProvider from '../constants/ThemeContext';
+import { useTheme } from '../constants/ThemeContext';
+import AuthProvider from '../constants/AuthContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 function AppStack() {
   const { darkMode } = useTheme();
@@ -23,10 +25,12 @@ function AppStack() {
 
 export default function Layout() {
   return (
-    <AuthProvider>
-      <ThemeProvider>
-        <AppStack />
-      </ThemeProvider>
-    </AuthProvider>
+    <SafeAreaView style={{ flex: 1 }}>
+      <AuthProvider>
+        <ThemeProvider>
+          <AppStack />
+        </ThemeProvider>
+      </AuthProvider>
+    </SafeAreaView>
   );
 }

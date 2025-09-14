@@ -7,7 +7,7 @@ const ThemeContext = createContext({
   setDarkMode: (value: boolean) => {},
 });
 
-export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
+const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const [darkMode, setDarkMode] = useState(false);
 
   useEffect(() => {
@@ -22,11 +22,14 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     AsyncStorage.setItem("darkMode", value ? "true" : "false");
   };
 
+
   return (
     <ThemeContext.Provider value={{ darkMode, setDarkMode: updateDarkMode }}>
       {children}
     </ThemeContext.Provider>
   );
 };
+
+export default ThemeProvider;
 
 export const useTheme = () => useContext(ThemeContext);
