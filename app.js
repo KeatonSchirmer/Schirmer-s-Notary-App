@@ -10,18 +10,7 @@ export default function App() {
     <NavigationContainer>
       <Stack.Navigator initialRouteName="Calendar">
         <Stack.Screen name="Calendar" component={CalendarScreen} />
-        {/* Add more admin screens here */}
       </Stack.Navigator>
     </NavigationContainer>
-  );
-}
-
-import { View, Text } from 'react-native';
-
-export default function App() {
-  return (
-    <View className="flex-1 items-center justify-center bg-white">
-      <Text className="text-2xl text-blue-600">NativeWind is working ✅</Text>
-    </View>
   );
 }

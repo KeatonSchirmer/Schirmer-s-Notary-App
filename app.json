@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "buildNumber": "1.1.2",
+      "buildNumber": "1.1.3",
       "supportsTablet": true,
       "usesPushNotifications": true,
       "icon": "./assets/images/SchirmersNotary.png",
