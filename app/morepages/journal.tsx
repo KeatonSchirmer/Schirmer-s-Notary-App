@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import { Picker } from '@react-native-picker/picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, Linking } from "react-native";
 
 const API_BASE = "https://schirmer-s-notary-backend.onrender.com/journal";
@@ -12,9 +14,12 @@ type JournalEntry = {
   id_number: string;
   signature: string;
   notes: string;
+  job_id?: string;
 };
 
 export default function JournalScreen() {
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [selectedJobId, setSelectedJobId] = useState<string>("");
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [newEntry, setNewEntry] = useState<JournalEntry>({
@@ -26,10 +31,21 @@ export default function JournalScreen() {
     signature: "",
     notes: "",
   });
+  const [scannedDoc, setScannedDoc] = useState<any>(null);
   const [editId, setEditId] = useState<any>(null);
   const [editEntry, setEditEntry] = useState<JournalEntry>({ date: "", client_name: "", document_type: "", id_type: "", id_number: "", signature: "", notes: "" });
 
   useEffect(() => {
+    async function fetchJobs() {
+      try {
+        const res = await fetch("https://schirmer-s-notary-backend.onrender.com/jobs/?status=completed");
+        const data = await res.json();
+        setJobs(data || []);
+      } catch {
+        // ignore job fetch errors
+      }
+    }
+    fetchJobs();
     async function fetchEntries() {
       setLoading(true);
       try {
@@ -46,11 +62,38 @@ export default function JournalScreen() {
 
   async function addEntry() {
     try {
-      const res = await fetch(`${API_BASE}/new`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newEntry),
-      });
+      let res;
+      if (scannedDoc) {
+        const formData = new FormData();
+        Object.entries(newEntry).forEach(([key, value]) => {
+          formData.append(key, value as string);
+        });
+        if (selectedJobId) {
+          formData.append('job_id', selectedJobId);
+        }
+        formData.append('file', {
+          uri: scannedDoc.uri,
+          name: scannedDoc.name || 'scanned.pdf',
+          type: 'application/pdf',
+        } as any);
+        res = await fetch(`${API_BASE}/new`, {
+          method: "POST",
+          headers: {
+            'Accept': 'application/json',
+          },
+          body: formData,
+        });
+      } else {
+        const entryData = { ...newEntry };
+        if (selectedJobId) {
+          entryData.job_id = selectedJobId;
+        }
+        res = await fetch(`${API_BASE}/new`, {
+          method: "POST",
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(entryData),
+        });
+      }
       if (res.ok) {
         Alert.alert("Success", "Journal entry added");
         setNewEntry({
@@ -62,6 +105,7 @@ export default function JournalScreen() {
           signature: "",
           notes: "",
         });
+        setScannedDoc(null);
         const data = await res.json();
         setEntries((prev) => [{ ...newEntry, id: data.id }, ...prev]);
       } else {
@@ -150,6 +194,36 @@ function downloadPDF(id: DownloadPDFProps["id"]): void {
       )}
 
       <View style={{ backgroundColor: "#f3f4f6", padding: 16, borderRadius: 12 }}>
+        <Text style={{ fontWeight: "bold", marginBottom: 8 }}>Link to Completed Job</Text>
+        <Picker
+          selectedValue={selectedJobId}
+          onValueChange={(itemValue) => setSelectedJobId(itemValue)}
+          style={{ marginBottom: 8 }}
+        >
+          <Picker.Item label="None" value="" />
+          {jobs.map((job: any) => (
+            <Picker.Item key={job.id} label={`#${job.id} - ${job.name || job.document_type || 'Job'}`} value={String(job.id)} />
+          ))}
+        </Picker>
+        {scannedDoc ? (
+          <View style={{ marginBottom: 8 }}>
+            <Text style={{ color: '#22c55e' }}>Scanned Document: {scannedDoc.name || 'scanned.pdf'}</Text>
+            <TouchableOpacity onPress={() => setScannedDoc(null)} style={{ backgroundColor: '#ef4444', padding: 6, borderRadius: 6, marginTop: 4 }}>
+              <Text style={{ color: '#fff', textAlign: 'center' }}>Remove</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+        <TouchableOpacity
+          onPress={async () => {
+            const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf' });
+            if (result.assets && result.assets.length > 0) {
+              setScannedDoc(result.assets[0]);
+            }
+          }}
+          style={{ backgroundColor: '#2563eb', padding: 8, borderRadius: 8, marginBottom: 8 }}
+        >
+          <Text style={{ color: '#fff', textAlign: 'center' }}>Scan & Attach Document (PDF)</Text>
+        </TouchableOpacity>
         <Text style={{ fontWeight: "bold", marginBottom: 8 }}>Add New Entry</Text>
         <TextInput value={newEntry.date} onChangeText={(v) => setNewEntry((e) => ({ ...e, date: v }))} placeholder="Date" style={{ marginBottom: 8 }} />
         <TextInput value={newEntry.client_name} onChangeText={(v) => setNewEntry((e) => ({ ...e, client_name: v }))} placeholder="Client Name" style={{ marginBottom: 8 }} />

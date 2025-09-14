@@ -7,6 +7,7 @@ import haversine from "haversine";
 import { useTheme } from "../../constants/ThemeContext";
 
 export default function Mileage() {
+  const [elapsedTime, setElapsedTime] = useState(0);
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -17,6 +18,20 @@ export default function Mileage() {
   const [startTime, setStartTime] = useState<number | null>(null);
   const [stopTime, setStopTime] = useState<number | null>(null);
   const { darkMode } = useTheme();
+
+  useEffect(() => {
+    let timer: any = null;
+    if (tracking && startTime) {
+      timer = setInterval(() => {
+        setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
+      }, 1000);
+    } else {
+      setElapsedTime(0);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [tracking, startTime]);
 
   const userId = 1;
   useEffect(() => {
@@ -42,11 +57,12 @@ export default function Mileage() {
         return;
       }
 
-      setTracking(true);
-      setDistance(0);
-      setLastLocation(null);
-      setStartTime(Date.now());
-      setStopTime(null);
+  setTracking(true);
+  setDistance(0);
+  setLastLocation(null);
+  setStartTime(Date.now());
+  setStopTime(null);
+  setElapsedTime(0);
 
       const sub = await Location.watchPositionAsync(
         {
@@ -83,12 +99,13 @@ export default function Mileage() {
       watcher.remove();
       setWatcher(null);
     }
-    setTracking(false);
-    setStopTime(Date.now());
+  setTracking(false);
+  setStopTime(Date.now());
+  setElapsedTime(0);
 
     let timeTraveled = 0;
     if (startTime) {
-      timeTraveled = ((Date.now() - startTime) / 1000); // seconds
+      timeTraveled = ((Date.now() - startTime) / 1000);
     }
 
     if (distance > 0) {
@@ -98,10 +115,17 @@ export default function Mileage() {
           purpose: "Tracked Trip",
           time: timeTraveled,
         } as any, { "X-User-Id": String(userId) });
-        setEntries((prev) => [
-          { id: Date.now(), date: new Date().toISOString().split("T")[0], miles: distance.toFixed(2), purpose: "Tracked Trip", time: timeTraveled },
-          ...prev,
-        ]);
+        // Refetch entries from backend to ensure UI is up to date
+        setLoading(true);
+        setError("");
+        try {
+          const data = await apiRequest("https://schirmer-s-notary-backend.onrender.com/mileage/", "GET", null, { "X-User-Id": String(userId) });
+          setEntries(Array.isArray(data) ? data : data.entries || []);
+        } catch (err) {
+          setError("No mileage entries");
+        } finally {
+          setLoading(false);
+        }
       } catch (err) {
         setError("Failed to save mileage");
       }
@@ -124,11 +148,9 @@ export default function Mileage() {
               <Text style={{ marginTop: 16, color: darkMode ? '#d1d5db' : '#222' }}>
                 Distance: {distance.toFixed(2)} miles
               </Text>
-              {startTime && (
-                <Text style={{ marginTop: 8, color: darkMode ? '#d1d5db' : '#222' }}>
-                  Time: {(((stopTime ?? Date.now()) - startTime) / 1000).toFixed(0)} seconds
-                </Text>
-              )}
+              <Text style={{ marginTop: 8, color: darkMode ? '#d1d5db' : '#222' }}>
+                Time: {elapsedTime} seconds
+              </Text>
             </>
           )}
         </View>

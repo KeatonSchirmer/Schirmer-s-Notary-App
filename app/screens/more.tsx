@@ -10,6 +10,7 @@ type MoreProps = {
 
 export default function More({ navigation }: MoreProps) {
   const items = [
+    { name: "Journal", route: "Journal" },
     { name: "Calendar", route: "Calendar" },
     { name: "Finances", route: "Finances" },
     { name: "Settings", route: "Settings" },

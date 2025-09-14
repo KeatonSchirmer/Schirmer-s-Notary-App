@@ -55,7 +55,7 @@ export default function FinancesScreen() {
 
   const handleAddExpense = async () => {
     try {
-  await apiRequest("https://schirmer-s-notary-backend.onrender.com/finances", "POST", {
+  await apiRequest("https://schirmer-s-notary-backend.onrender.com/finances/add", "POST", {
         category: expenseCategory,
         amount: parseFloat(expenseAmount),
         description: expenseDescription,

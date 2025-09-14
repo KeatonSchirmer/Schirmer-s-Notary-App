@@ -78,8 +78,8 @@ export default function Dashboard() {
   }, []);
 
   const handleAddClient = async () => {
-        try {
-  await apiRequest("https://schirmer-s-notary-backend.onrender.com/clients/", "POST", {
+    try {
+      await apiRequest("https://schirmer-s-notary-backend.onrender.com/contacts", "POST", {
         name: clientName,
         email: clientEmail,
         company: company
@@ -88,13 +88,15 @@ export default function Dashboard() {
       setClientName("");
       setClientEmail("");
       setCompany("");
+      Alert.alert("Success", "Client added successfully.");
     } catch (err) {
+      Alert.alert("Error", "Failed to add client.");
     }
   };
 
   const handleAddExpense = async () => {
     try {
-  await apiRequest("https://schirmer-s-notary-backend.onrender.com/finances/", "POST", {
+  await apiRequest("https://schirmer-s-notary-backend.onrender.com/finances/add", "POST", {
         category: expenseCategory,
         amount: parseFloat(expenseAmount),
         description: expenseDescription,
@@ -214,7 +216,12 @@ export default function Dashboard() {
               <TouchableOpacity style={{ backgroundColor: '#2563eb', borderRadius: 8, padding: 10, marginBottom: 8 }} onPress={handleAddClient}>
                 <Text style={{ color: '#fff', textAlign: 'center' }}>Save</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={{ backgroundColor: darkMode ? '#444' : '#e5e7eb', borderRadius: 8, padding: 10 }} onPress={() => setShowClientModal(false)}>
+              <TouchableOpacity style={{ backgroundColor: darkMode ? '#444' : '#e5e7eb', borderRadius: 8, padding: 10 }} onPress={() => {
+                setShowClientModal(false);
+                setClientName("");
+                setClientEmail("");
+                setCompany("");
+              }}>
                 <Text style={{ color: darkMode ? '#fff' : '#222', textAlign: 'center' }}>Cancel</Text>
               </TouchableOpacity>
             </View>
@@ -253,7 +260,13 @@ export default function Dashboard() {
               <TouchableOpacity style={{ backgroundColor: '#16a34a', borderRadius: 8, padding: 10, marginBottom: 8 }} onPress={handleAddExpense}>
                 <Text style={{ color: '#fff', textAlign: 'center' }}>Save</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={{ backgroundColor: darkMode ? '#444' : '#e5e7eb', borderRadius: 8, padding: 10 }} onPress={() => setShowExpenseModal(false)}>
+              <TouchableOpacity style={{ backgroundColor: darkMode ? '#444' : '#e5e7eb', borderRadius: 8, padding: 10 }} onPress={() => {
+                setShowExpenseModal(false);
+                setExpenseCategory("");
+                setExpenseAmount("");
+                setExpenseDescription("");
+                setExpenseType("expense");
+              }}>
                 <Text style={{ color: darkMode ? '#fff' : '#222', textAlign: 'center' }}>Cancel</Text>
               </TouchableOpacity>
             </View>
