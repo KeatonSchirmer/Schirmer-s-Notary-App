@@ -16,6 +16,18 @@ type Finance = {
 };
 
 export default function FinancesScreen() {
+  // Custom dropdown state for Add modal
+  const [customDropdownOpen, setCustomDropdownOpen] = useState(false);
+  const customDropdownOptions = [
+    { label: 'Expense', value: 'expense' },
+    { label: 'Profit', value: 'earning' }
+  ];
+  // Custom dropdown state for Edit modal
+  const [editCustomDropdownOpen, setEditCustomDropdownOpen] = useState(false);
+  const editCustomDropdownOptions = [
+    { label: 'Expense', value: 'expense' },
+    { label: 'Profit', value: 'earning' }
+  ];
   const { darkMode } = useTheme();
   const [finances, setFinances] = useState<Finance[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,7 +75,6 @@ export default function FinancesScreen() {
         date: new Date().toISOString().slice(0, 10)
       } as any);
       setShowExpenseModal(false);
-      setExpenseCategory("");
       setExpenseAmount("");
       setExpenseDescription("");
       setExpenseType("expense");
@@ -77,7 +88,6 @@ export default function FinancesScreen() {
   const openEditModal = (f: Finance) => {
     setEditFinance(f);
     setEditType(f.type);
-    setEditCategory(f.category);
     setEditAmount(f.amount.toString());
     setEditDescription(f.description || "");
     setEditModalVisible(true);
@@ -87,7 +97,6 @@ export default function FinancesScreen() {
     if (!editFinance) return;
     try {
   await apiRequest(`https://schirmer-s-notary-backend.onrender.com/finances/${editFinance.id}`, "PUT", {
-        category: editCategory,
         amount: parseFloat(editAmount),
         description: editDescription,
         type: editType,
@@ -147,26 +156,35 @@ export default function FinancesScreen() {
 
       <Modal visible={showExpenseModal} transparent animationType="slide">
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#00000088" }}>
-          <View style={{ backgroundColor: darkMode ? '#27272a' : '#fff', padding: 20, borderRadius: 10, width: "80%" }}>
+          <View style={{ backgroundColor: darkMode ? '#27272a' : '#fff', padding: 20, borderRadius: 10, width: "80%", zIndex: 10 }}>
             <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 8, color: darkMode ? '#fff' : '#222' }}>Add Expense/Profit</Text>
-            <DropDownPicker
-              open={dropdownOpen}
-              value={expenseType}
-              items={dropdownItems}
-              setOpen={setDropdownOpen}
-              setValue={setExpenseType}
-              setItems={setDropdownItems}
-              containerStyle={{ marginBottom: 10 }}
-              style={{ borderColor: darkMode ? '#444' : '#ccc', backgroundColor: darkMode ? '#18181b' : '#fff' }}
-              textStyle={{ color: darkMode ? '#fff' : '#222' }}
-            />
-            <TextInput
-              placeholder="Category"
-              placeholderTextColor={darkMode ? '#888' : '#999'}
-              value={expenseCategory}
-              onChangeText={setExpenseCategory}
-              style={{ borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 5, padding: 8, marginBottom: 10, color: darkMode ? '#fff' : '#222', backgroundColor: darkMode ? '#18181b' : '#fff' }}
-            />
+            <View style={{ marginBottom: 10, zIndex: 1000 }}>
+              <TouchableOpacity
+                style={{ borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 5, paddingHorizontal: 8, height: 44, backgroundColor: darkMode ? '#18181b' : '#fff', justifyContent: 'center' }}
+                onPress={() => setCustomDropdownOpen((open) => !open)}
+                activeOpacity={0.7}
+              >
+                <Text style={{ color: darkMode ? '#fff' : '#222' }}>
+                  {customDropdownOptions.find(opt => opt.value === expenseType)?.label || 'Select type'}
+                </Text>
+              </TouchableOpacity>
+              {customDropdownOpen && (
+                <View style={{ position: 'absolute', top: 48, left: 0, right: 0, backgroundColor: darkMode ? '#18181b' : '#fff', borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 5, zIndex: 2000 }}>
+                  {customDropdownOptions.map(opt => (
+                    <TouchableOpacity
+                      key={opt.value}
+                      style={{ padding: 10 }}
+                      onPress={() => {
+                        setExpenseType(opt.value);
+                        setCustomDropdownOpen(false);
+                      }}
+                    >
+                      <Text style={{ color: darkMode ? '#fff' : '#222' }}>{opt.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
             <TextInput
               placeholder="Amount"
               placeholderTextColor={darkMode ? '#888' : '#999'}
@@ -218,17 +236,33 @@ export default function FinancesScreen() {
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#00000088" }}>
           <View style={{ backgroundColor: darkMode ? '#27272a' : '#fff', padding: 20, borderRadius: 10, width: "80%" }}>
             <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 8, color: darkMode ? '#fff' : '#222' }}>Edit Transaction</Text>
-            <DropDownPicker
-              open={editDropdownOpen}
-              value={editType}
-              items={editDropdownItems}
-              setOpen={setEditDropdownOpen}
-              setValue={setEditType}
-              setItems={setEditDropdownItems}
-              containerStyle={{ marginBottom: 10 }}
-              style={{ borderColor: darkMode ? '#444' : '#ccc', backgroundColor: darkMode ? '#18181b' : '#fff' }}
-              textStyle={{ color: darkMode ? '#fff' : '#222' }}
-            />
+            <View style={{ marginBottom: 10, zIndex: 1000 }}>
+              <TouchableOpacity
+                style={{ borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 5, paddingHorizontal: 8, height: 44, backgroundColor: darkMode ? '#18181b' : '#fff', justifyContent: 'center' }}
+                onPress={() => setEditCustomDropdownOpen((open) => !open)}
+                activeOpacity={0.7}
+              >
+                <Text style={{ color: darkMode ? '#fff' : '#222' }}>
+                  {editCustomDropdownOptions.find(opt => opt.value === editType)?.label || 'Select type'}
+                </Text>
+              </TouchableOpacity>
+              {editCustomDropdownOpen && (
+                <View style={{ position: 'absolute', top: 48, left: 0, right: 0, backgroundColor: darkMode ? '#18181b' : '#fff', borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 5, zIndex: 2000 }}>
+                  {editCustomDropdownOptions.map(opt => (
+                    <TouchableOpacity
+                      key={opt.value}
+                      style={{ padding: 10 }}
+                      onPress={() => {
+                        setEditType(opt.value);
+                        setEditCustomDropdownOpen(false);
+                      }}
+                    >
+                      <Text style={{ color: darkMode ? '#fff' : '#222' }}>{opt.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
             <TextInput
               placeholder="Amount"
               placeholderTextColor={darkMode ? '#888' : '#999'}

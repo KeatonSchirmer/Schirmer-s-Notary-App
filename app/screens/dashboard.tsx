@@ -4,6 +4,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from '@react-navigation/native';
 import apiRequest from "../../api";
 import DropDownPicker from 'react-native-dropdown-picker';
+import { Picker } from '@react-native-picker/picker';
+// ...existing code...
 import { useTheme } from "../../constants/ThemeContext";
 
 interface Appointment {
@@ -20,6 +22,11 @@ interface RequestItem {
 }
 
 export default function Dashboard() {
+  const [customDropdownOpen, setCustomDropdownOpen] = useState(false);
+  const customDropdownOptions = [
+    { label: 'Expense', value: 'expense' },
+    { label: 'Profit', value: 'earning' }
+  ];
   const navigation = useNavigation();
   const { darkMode } = useTheme();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -78,19 +85,28 @@ export default function Dashboard() {
   }, []);
 
   const handleAddClient = async () => {
+    if (!clientName || !clientEmail) {
+      Alert.alert("Error", "Name and Email are required.");
+      return;
+    }
     try {
-      await apiRequest("https://schirmer-s-notary-backend.onrender.com/contacts", "POST", {
+      const res = await apiRequest("https://schirmer-s-notary-backend.onrender.com/clients/create", "POST", {
         name: clientName,
         email: clientEmail,
         company: company
       } as any, { "X-User-Id": String(userId) });
+      if (res && res.error) {
+        Alert.alert("Error", res.error);
+        return;
+      }
       setShowClientModal(false);
       setClientName("");
       setClientEmail("");
       setCompany("");
       Alert.alert("Success", "Client added successfully.");
+      // Optionally refresh client list here
     } catch (err) {
-      Alert.alert("Error", "Failed to add client.");
+  Alert.alert("Error", typeof err === 'string' ? err : (err && (err as any).message ? (err as any).message : "Failed to add client."));
     }
   };
 
@@ -230,24 +246,41 @@ export default function Dashboard() {
 
         <Modal visible={showExpenseModal} transparent animationType="slide">
           <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#00000088" }}>
-            <View style={{ backgroundColor: darkMode ? '#27272a' : '#fff', padding: 20, borderRadius: 10, width: "80%" }}>
+            <View style={{ backgroundColor: darkMode ? '#27272a' : '#fff', padding: 20, borderRadius: 10, width: "80%", zIndex: 1000 }}>
               <Text style={{ fontSize: 18, fontWeight: "600", marginBottom: 8, color: darkMode ? '#fff' : '#222' }}>Add Profit/Expense</Text>
-              <DropDownPicker
-                open={dropdownOpen}
-                value={expenseType}
-                items={dropdownItems}
-                setOpen={setDropdownOpen}
-                setValue={setExpenseType}
-                setItems={setDropdownItems}
-                containerStyle={{ marginBottom: 10 }}
-                style={{ borderColor: darkMode ? '#444' : '#ccc' }}
-              />
+              <View style={{ marginBottom: 10, zIndex: 1000 }}>
+                <TouchableOpacity
+                  style={{ borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 5, paddingHorizontal: 8, height: 44, backgroundColor: darkMode ? '#18181b' : '#fff', justifyContent: 'center' }}
+                  onPress={() => setCustomDropdownOpen((open) => !open)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ color: darkMode ? '#fff' : '#222' }}>
+                    {customDropdownOptions.find(opt => opt.value === expenseType)?.label || 'Select type'}
+                  </Text>
+                </TouchableOpacity>
+                {customDropdownOpen && (
+                  <View style={{ position: 'absolute', top: 48, left: 0, right: 0, backgroundColor: darkMode ? '#18181b' : '#fff', borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 5, zIndex: 2000 }}>
+                    {customDropdownOptions.map(opt => (
+                      <TouchableOpacity
+                        key={opt.value}
+                        style={{ padding: 10 }}
+                        onPress={() => {
+                          setExpenseType(opt.value);
+                          setCustomDropdownOpen(false);
+                        }}
+                      >
+                        <Text style={{ color: darkMode ? '#fff' : '#222' }}>{opt.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
               <TextInput
                 placeholder="Amount"
                 placeholderTextColor={darkMode ? '#888' : '#999'}
                 value={expenseAmount}
                 onChangeText={setExpenseAmount}
-                style={{ borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 5, padding: 8, marginBottom: 10, color: darkMode ? '#fff' : '#222', backgroundColor: darkMode ? '#18181b' : '#fff' }}
+                style={{ borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 5, padding: 8, marginBottom: 10, color: darkMode ? '#fff' : '#222', backgroundColor: darkMode ? '#18181b' : '#fff', zIndex: 1 }}
                 keyboardType="numeric"
               />
               <TextInput
@@ -255,7 +288,7 @@ export default function Dashboard() {
                 placeholderTextColor={darkMode ? '#888' : '#999'}
                 value={expenseDescription}
                 onChangeText={setExpenseDescription}
-                style={{ borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 5, padding: 8, marginBottom: 10, color: darkMode ? '#fff' : '#222', backgroundColor: darkMode ? '#18181b' : '#fff' }}
+                style={{ borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 5, padding: 8, marginBottom: 10, color: darkMode ? '#fff' : '#222', backgroundColor: darkMode ? '#18181b' : '#fff', zIndex: 1 }}
               />
               <TouchableOpacity style={{ backgroundColor: '#16a34a', borderRadius: 8, padding: 10, marginBottom: 8 }} onPress={handleAddExpense}>
                 <Text style={{ color: '#fff', textAlign: 'center' }}>Save</Text>

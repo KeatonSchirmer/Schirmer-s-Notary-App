@@ -53,21 +53,28 @@ const ClientsScreen: React.FC<ClientsScreenProps> = ({ navigation }) => {
 
   const handleAddClient = async () => {
     if (!clientName || !clientEmail) {
+      Alert.alert("Error", "Name and Email are required.");
       return;
     }
     try {
-  await apiRequest("https://schirmer-s-notary-backend.onrender.com/clients", "POST", {
+      const res = await apiRequest("https://schirmer-s-notary-backend.onrender.com/clients/create", "POST", {
         name: clientName,
         email: clientEmail,
         company: company
       } as any);
+      if (res && res.error) {
+        Alert.alert("Error", res.error);
+        return;
+      }
       setShowClientModal(false);
       setClientName("");
       setClientEmail("");
       setCompany("");
-  const data = await apiRequest("https://schirmer-s-notary-backend.onrender.com/clients/all");
+      Alert.alert("Success", "Client added successfully.");
+      const data = await apiRequest("https://schirmer-s-notary-backend.onrender.com/clients/all");
       setClients(data.clients || []);
     } catch (err) {
+      Alert.alert("Error", typeof err === 'string' ? err : (err && (err as any).message ? (err as any).message : "Failed to add client."));
     }
   };
 

@@ -16,6 +16,22 @@ export default function Calendar() {
   function toggleDay(day: string) {
     setAvailableDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
   }
+
+  async function fetchAvailability() {
+    try {
+      const res = await apiRequest("https://schirmer-s-notary-backend.onrender.com/calendar/availability", "GET");
+      if (res && res.availability) {
+        setAvailableDays(Array.isArray(res.availability.availableDays) ? res.availability.availableDays : (res.availability.availableDays || '').split(','));
+        setOfficeStart(res.availability.officeStart || "09:00");
+        setOfficeEnd(res.availability.officeEnd || "17:00");
+      }
+    } catch {
+      // fallback to defaults
+      setAvailableDays([]);
+      setOfficeStart("09:00");
+      setOfficeEnd("17:00");
+    }
+  }
   async function saveAvailability() {
     try {
       const payload = {
@@ -122,7 +138,10 @@ export default function Calendar() {
     <ScrollView style={{ flex: 1, backgroundColor: darkMode ? '#18181b' : '#f9fafb' }} contentContainerStyle={{ padding: 16 }}>
           <TouchableOpacity
             style={{ backgroundColor: '#2563eb', padding: 10, borderRadius: 8, marginBottom: 12 }}
-            onPress={() => setAvailabilityModalVisible(true)}
+            onPress={async () => {
+              await fetchAvailability();
+              setAvailabilityModalVisible(true);
+            }}
           >
             <Text style={{ color: '#fff', textAlign: 'center', fontWeight: 'bold' }}>Set Availability (Admin)</Text>
           </TouchableOpacity>
