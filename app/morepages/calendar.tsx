@@ -1,15 +1,21 @@
 import React, { useState, useEffect } from "react";
+// Removed frontend Google OAuth imports
+import { View, Text, TouchableOpacity, ScrollView, Modal, TextInput, Alert } from "react-native";
+import apiRequest from "../../api";
+import { useTheme } from "../../constants/ThemeContext";
+
+
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  // Admin availability modal state
+
+
+export default function Calendar() {
   const [availabilityModalVisible, setAvailabilityModalVisible] = useState(false);
   const [availableDays, setAvailableDays] = useState<string[]>([]);
   const [officeStart, setOfficeStart] = useState("09:00");
   const [officeEnd, setOfficeEnd] = useState("17:00");
-  // Helper: toggle day selection
   function toggleDay(day: string) {
     setAvailableDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
   }
-  // Save availability to backend
   async function saveAvailability() {
     try {
       const payload = {
@@ -17,27 +23,20 @@ const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
         officeEnd,
         availableDays,
       };
-      await apiRequest("https://schirmer-s-notary-backend.onrender.com/calendar/availability", "POST", payload);
-      Alert.alert("Success", "Availability saved.");
+      const res = await apiRequest("https://schirmer-s-notary-backend.onrender.com/calendar/availability", "POST", payload);
+      if (res && res.message) {
+        Alert.alert("Success", res.message);
+      } else {
+        Alert.alert("Success", "Availability saved.");
+      }
       setAvailabilityModalVisible(false);
-    } catch {
+    } catch (err) {
       Alert.alert("Error", "Failed to save availability.");
     }
   }
-import * as AuthSession from 'expo-auth-session';
-import { useAuthRequest, makeRedirectUri, ResponseType } from 'expo-auth-session';
-import { View, Text, TouchableOpacity, ScrollView } from "react-native";
-import { Modal, TextInput, Alert } from "react-native";
-import apiRequest from "../../api";
-import { useTheme } from "../../constants/ThemeContext";
-
-
-export default function Calendar() {
-  // Working hours state
   const [workingStartHour, setWorkingStartHour] = useState(9); // default 9am
   const [workingEndHour, setWorkingEndHour] = useState(17); // default 5pm
 
-  // Helper: generate all slots for a day based on working hours
   function generateDaySlots(date: Date) {
     const slots = [];
     for (let hour = workingStartHour; hour < workingEndHour; hour++) {
@@ -57,65 +56,13 @@ export default function Calendar() {
   const [eventDescription, setEventDescription] = useState("");
   const [userId, setUserId] = useState("");
   const [googleEvents, setGoogleEvents] = useState<any[]>([]);
-  const [googleConnected, setGoogleConnected] = useState(false);
-  const GOOGLE_CLIENT_ID = '131000715689-16b27f57ks2jvasq3m6tvqkfcmdcjtpu.apps.googleusercontent.com';
-  const GOOGLE_SCOPES = ['https://www.googleapis.com/auth/calendar.readonly'];
-  const GOOGLE_DISCOVERY = {
-    authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
-    tokenEndpoint: 'https://oauth2.googleapis.com/token',
-    revocationEndpoint: 'https://oauth2.googleapis.com/revoke',
-  };
-  const redirectUri = makeRedirectUri();
-  const [request, response, promptAsync] = useAuthRequest({
-    clientId: GOOGLE_CLIENT_ID,
-    scopes: GOOGLE_SCOPES,
-    redirectUri,
-    responseType: ResponseType.Token,
-    usePKCE: false,
-  }, GOOGLE_DISCOVERY);
-
-  useEffect(() => {
-    if (request) {
-      promptAsync();
-    }
-  }, [request]);
-
-  useEffect(() => {
-    if (response?.type === 'success' && response.params.access_token) {
-      setGoogleConnected(true);
-      fetchGoogleEvents(response.params.access_token);
-    }
-  }, [response]);
-
-  async function fetchGoogleEvents(accessToken?: string) {
+  // Fetch Google events from backend endpoint
+  async function fetchGoogleEventsFromBackend() {
     try {
-      let token = accessToken;
-      if (!token) return;
-      const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=100', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      const events = data.items || [];
-      setGoogleEvents(events);
-
-      for (const event of events) {
-        if (!event.start) continue;
-        const start = event.start.dateTime || event.start.date;
-        const end = event.end?.dateTime || event.end?.date || start;
-        const payload = {
-          title: event.summary || "Google Event",
-          start_date: start,
-          end_date: end,
-          location: event.location || "",
-          description: event.description || "",
-          user_id: userId || "google-sync", 
-        };
-        try {
-          await apiRequest("https://schirmer-s-notary-backend.onrender.com/calendar/google-sync", "POST", payload);
-        } catch (err) {
-        }
-      }
+      const res = await apiRequest("https://schirmer-s-notary-backend.onrender.com/calendar/google-sync-events", "GET");
+      setGoogleEvents(res.events || []);
     } catch {
+      setGoogleEvents([]);
     }
   }
   const { darkMode } = useTheme();
@@ -159,8 +106,9 @@ export default function Calendar() {
       setLoading(true);
       setError("");
       try {
-  const data = await apiRequest("https://schirmer-s-notary-backend.onrender.com/calendar/local");
+        const data = await apiRequest("https://schirmer-s-notary-backend.onrender.com/calendar/local");
         setEvents(data.events || []);
+        await fetchGoogleEventsFromBackend();
       } catch (err) {
         setError("Failed to load events");
       } finally {
@@ -171,15 +119,13 @@ export default function Calendar() {
   }, [year, month]);
 
   return (
-    <>
-      <View style={{ flex: 1, backgroundColor: darkMode ? '#18181b' : '#f9fafb', padding: 16 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: darkMode ? '#18181b' : '#f9fafb' }} contentContainerStyle={{ padding: 16 }}>
           <TouchableOpacity
             style={{ backgroundColor: '#2563eb', padding: 10, borderRadius: 8, marginBottom: 12 }}
             onPress={() => setAvailabilityModalVisible(true)}
           >
             <Text style={{ color: '#fff', textAlign: 'center', fontWeight: 'bold' }}>Set Availability (Admin)</Text>
           </TouchableOpacity>
-      {/* Admin Availability Modal */}
       <Modal visible={availabilityModalVisible} transparent animationType="slide">
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#00000088" }}>
           <View style={{ backgroundColor: darkMode ? '#27272a' : '#fff', padding: 20, borderRadius: 10, width: "80%" }}>
@@ -538,8 +484,7 @@ export default function Calendar() {
             </ScrollView>
           </>
         )}
-      </View>
-    </>
+      </ScrollView>
   );
 }
 

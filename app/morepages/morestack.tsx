@@ -4,6 +4,7 @@ import MoreScreen from "../screens/more";
 import CalendarScreen from "./calendar";
 import FinancesScreen from "./finances";
 import SettingsScreen from "./settings";
+import JournalScreen from "./journal";
 import apiRequest from "../../api";
 
 
@@ -48,6 +49,16 @@ export default function MoreStack({ setLoggedIn }: { setLoggedIn?: (val: boolean
         component={CalendarScreen}
         options={{
           title: "Calendar",
+          headerStyle: { backgroundColor: darkMode ? "#18181b" : "#fff" },
+          headerTitleStyle: { color: darkMode ? "#fff" : "#222" },
+          headerTintColor: darkMode ? "#fff" : "#222",
+        }}
+      />
+      <Stack.Screen
+        name="Journal"
+        component={JournalScreen}
+        options={{
+          title: "Journal",
           headerStyle: { backgroundColor: darkMode ? "#18181b" : "#fff" },
           headerTitleStyle: { color: darkMode ? "#fff" : "#222" },
           headerTintColor: darkMode ? "#fff" : "#222",
