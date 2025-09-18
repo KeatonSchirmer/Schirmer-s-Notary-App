@@ -55,9 +55,9 @@ export default function Dashboard() {
       setLoading(true);
       setError("");
       try {
-  const appointmentsData = await apiRequest("https://schirmer-s-notary-backend.onrender.com/calendar/local", "GET", null, { "X-User-Id": String(userId) });
-  const requestsData = await apiRequest("https://schirmer-s-notary-backend.onrender.com/jobs/", "GET", null, { "X-User-Id": String(userId) });
-        setAppointments(appointmentsData.events || []);
+        const appointmentsData = await apiRequest("https://schirmer-s-notary-backend.onrender.com/calendar/local", "GET", null, { "X-User-Id": String(userId) });
+        const requestsData = await apiRequest("https://schirmer-s-notary-backend.onrender.com/jobs/pending", "GET", null, { "X-User-Id": String(userId) });
+        setAppointments(Array.isArray(appointmentsData) ? appointmentsData : []);
         setRequests(requestsData || []);
       } catch (err) {
         if (err instanceof Error) {
@@ -93,7 +93,8 @@ export default function Dashboard() {
       const res = await apiRequest("https://schirmer-s-notary-backend.onrender.com/clients/create", "POST", {
         name: clientName,
         email: clientEmail,
-        company: company
+        company_name: company,
+        company_address: "", 
       } as any, { "X-User-Id": String(userId) });
       if (res && res.error) {
         Alert.alert("Error", res.error);
@@ -112,15 +113,13 @@ export default function Dashboard() {
 
   const handleAddExpense = async () => {
     try {
-  await apiRequest("https://schirmer-s-notary-backend.onrender.com/finances/add", "POST", {
-        category: expenseCategory,
+      await apiRequest("https://schirmer-s-notary-backend.onrender.com/finances/add", "POST", {
         amount: parseFloat(expenseAmount),
         description: expenseDescription,
         type: expenseType,
         date: new Date().toISOString().slice(0, 10)
       } as any, { "X-User-Id": String(userId) });
       setShowExpenseModal(false);
-      setExpenseCategory("");
       setExpenseAmount("");
       setExpenseDescription("");
       setExpenseType("expense");

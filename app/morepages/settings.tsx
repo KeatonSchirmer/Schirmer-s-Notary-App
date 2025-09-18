@@ -15,7 +15,6 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
   const [notifications, setNotifications] = useState(false);
 
   useEffect(() => {
-    // Load notification preference from AsyncStorage
     (async () => {
       const stored = await AsyncStorage.getItem('notifications_enabled');
       if (stored !== null) setNotifications(stored === 'true');
@@ -42,7 +41,7 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
       }
       const tokenData = await Notifications.getExpoPushTokenAsync();
       setExpoPushToken(tokenData.data);
-  await apiRequest('https://schirmer-s-notary-backend.onrender.com/profile/update', 'PATCH', { push_token: tokenData.data } as any, { 'X-User-Id': String(userId) });
+  await apiRequest('https://schirmer-s-notary-backend.onrender.com/auth/profile/update', 'PATCH', { push_token: tokenData.data } as any, { 'X-User-Id': String(userId) });
     } catch (err) {
   const errorMsg = (err && typeof err === 'object' && 'message' in err) ? (err as any).message : JSON.stringify(err);
   Alert.alert('Error', `Could not register for notifications: ${errorMsg}`);
@@ -57,32 +56,82 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [show2FAEmailSent, setShow2FAEmailSent] = useState(false);
   const [confirmationCode, setConfirmationCode] = useState("");
+   const [accountInfo, setAccountInfo] = useState({
+    name: "",
+    email: "",
+    address: "",
+    license_number: "",
+    license_expiration: "",
+    password: "********",
+  });
+  const [showEditAccountModal, setShowEditAccountModal] = useState(false);
+  const [editAccount, setEditAccount] = useState(accountInfo);
 
-  const userId = 1;
+  const userId = 1; 
 
-  const handleUpdateEmail = async () => {
-    try {
-  await apiRequest('https://schirmer-s-notary-backend.onrender.com/profile/update', 'PATCH', { email: newEmail } as any, { 'X-User-Id': String(userId) });
-      Alert.alert("Success", "Email updated successfully.");
-      setShowEmailModal(false);
-    } catch (err) {
-      Alert.alert("Error", "Failed to update email.");
+  useEffect(() => {
+    async function fetchAccountInfo() {
+      try {
+        const res = await apiRequest(
+          "https://schirmer-s-notary-backend.onrender.com/auth/profile",
+          "GET",
+          null,
+          { 'X-User-Id': String(userId) }
+        );
+        setAccountInfo({
+          name: res.name || "",
+          email: res.email || "",
+          address: res.address || "",
+          license_number: res.license_number || "",
+          license_expiration: res.license_expiration || "",
+          password: "********",
+        });
+        setEditAccount({
+          name: res.name || "",
+          email: res.email || "",
+          address: res.address || "",
+          license_number: res.license_number || "",
+          license_expiration: res.license_expiration || "",
+          password: "********",
+        });
+      } catch {
+        // fallback: do nothing
+      }
     }
-  };
+    fetchAccountInfo();
+  }, []);
 
-  const handleChangePassword = async () => {
+  // Edit account handler
+  const handleEditAccount = async () => {
     try {
-  await apiRequest('https://schirmer-s-notary-backend.onrender.com/auth/change-password', 'PATCH', { password: newPassword } as any, { 'X-User-Id': String(userId) });
-      Alert.alert("Success", "Password changed successfully.");
-      setShowPasswordModal(false);
-    } catch (err) {
-      Alert.alert("Error", "Failed to change password.");
+      await apiRequest(
+        "https://schirmer-s-notary-backend.onrender.com/auth/profile/update",
+        "PATCH",
+        {
+          name: editAccount.name,
+          email: editAccount.email,
+          address: editAccount.address,
+          license_number: editAccount.license_number,
+          license_expiration: editAccount.license_expiration,
+        },
+        { 'X-User-Id': String(userId) }
+      );
+      setAccountInfo(editAccount);
+      setShowEditAccountModal(false);
+      Alert.alert("Success", "Account info updated.");
+    } catch {
+      Alert.alert("Error", "Failed to update account info.");
     }
   };
 
   const handleRequest2FA = async () => {
     try {
-      await apiRequest('https://schirmer-s-notary-backend.onrender.com/profile/2fa-request', 'POST', null, { 'X-User-Id': String(userId) });
+      await apiRequest(
+        'https://schirmer-s-notary-backend.onrender.com/auth/twofa/request', // <-- updated endpoint
+        'POST',
+        null,
+        { 'X-User-Id': String(userId) }
+      );
       setShow2FAEmailSent(true);
       Alert.alert("Confirmation Email Sent", "Check your email for a code to enable 2FA.");
     } catch (err) {
@@ -92,7 +141,12 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
 
   const handleConfirm2FA = async () => {
     try {
-      await apiRequest('https://schirmer-s-notary-backend.onrender.com/profile/2fa-confirm', 'POST', { code: confirmationCode } as any, { 'X-User-Id': String(userId) });
+      await apiRequest(
+        'https://schirmer-s-notary-backend.onrender.com/auth/twofa/confirm', // <-- updated endpoint
+        'POST',
+        { code: confirmationCode },
+        { 'X-User-Id': String(userId) }
+      );
       setTwoFactorEnabled(true);
       setShow2FAModal(false);
       setShow2FAEmailSent(false);
@@ -107,12 +161,12 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
     setNotifications(value);
     await AsyncStorage.setItem('notifications_enabled', value ? 'true' : 'false');
     try {
-  await apiRequest('https://schirmer-s-notary-backend.onrender.com/profile/update', 'PATCH', { notifications_enabled: value } as any, { 'X-User-Id': String(userId) });
+  await apiRequest('https://schirmer-s-notary-backend.onrender.com/auth/profile/update', 'PATCH', { notifications_enabled: value } as any, { 'X-User-Id': String(userId) });
       if (value) {
         await registerForPushNotificationsAsync();
       } else {
         setExpoPushToken(null);
-  await apiRequest('https://schirmer-s-notary-backend.onrender.com/profile/update', 'PATCH', { push_token: null } as any, { 'X-User-Id': String(userId) });
+        await apiRequest('https://schirmer-s-notary-backend.onrender.com/auth/profile/update', 'PATCH', { push_token: null } as any, { 'X-User-Id': String(userId) });
       }
     } catch (err) {
       Alert.alert("Error", "Failed to update notifications.");
@@ -134,7 +188,7 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
           style: "destructive",
           onPress: async () => {
             try {
-              await apiRequest('https://schirmer-s-notary-backend.onrender.com/profile/delete', 'DELETE', null, { 'X-User-Id': String(userId) });
+              await apiRequest('https://schirmer-s-notary-backend.onrender.com/auth/profile/delete', 'DELETE', null, { 'X-User-Id': String(userId) });
               Alert.alert("Account Deleted", "Your account has been deleted.");
             } catch (err) {
               Alert.alert("Error", "Failed to delete account.");
@@ -153,16 +207,29 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
         <Text style={{ color: darkMode ? "#d1d5db" : "#6b7280" }}>Schirmer's Notary</Text>
       </View>
 
-      <View style={{ backgroundColor: darkMode ? "#27272a" : "#fff", borderRadius: 16, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 8, padding: 16, marginBottom: 24 }}>
-        <Text style={{ fontSize: 18, fontWeight: "600", marginBottom: 12, color: darkMode ? "#fff" : "#222" }}>Account</Text>
-        <TouchableOpacity style={{ paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: darkMode ? "#444" : "#e5e7eb" }} onPress={() => setShowEmailModal(true)}>
-          <Text style={{ color: darkMode ? "#fff" : "#222" }}>Update Email</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={{ paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: darkMode ? "#444" : "#e5e7eb" }} onPress={() => setShowPasswordModal(true)}>
-          <Text style={{ color: darkMode ? "#fff" : "#222" }}>Change Password</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={{ paddingVertical: 8 }} onPress={() => setShow2FAModal(true)}>
-          <Text style={{ color: darkMode ? "#fff" : "#222" }}>Two-Factor Authentication</Text>
+      <View style={{
+        backgroundColor: darkMode ? "#27272a" : "#fff",
+        borderRadius: 16,
+        shadowColor: "#000",
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        padding: 24,
+        marginBottom: 24,
+        alignItems: "center"
+      }}>
+        <Text style={{ fontSize: 18, fontWeight: "600", marginBottom: 12, color: darkMode ? "#fff" : "#222" }}>Account Information</Text>
+        <View style={{ width: "100%", marginTop: 16 }}>
+          <Text style={{ color: darkMode ? "#fff" : "#222", marginBottom: 4 }}>Email: <Text style={{ fontWeight: "600" }}>{accountInfo.email}</Text></Text>
+          <Text style={{ color: darkMode ? "#fff" : "#222", marginBottom: 4 }}>Address: <Text style={{ fontWeight: "600" }}>{accountInfo.address}</Text></Text>
+          <Text style={{ color: darkMode ? "#fff" : "#222", marginBottom: 4 }}>License Number: <Text style={{ fontWeight: "600" }}>{accountInfo.license_number}</Text></Text>
+          <Text style={{ color: darkMode ? "#fff" : "#222", marginBottom: 4 }}>License Expiration: <Text style={{ fontWeight: "600" }}>{accountInfo.license_expiration}</Text></Text>
+          <Text style={{ color: darkMode ? "#fff" : "#222", marginBottom: 4 }}>Password: <Text style={{ fontWeight: "600" }}>********</Text></Text>
+        </View>
+        <TouchableOpacity
+          style={{ backgroundColor: "#16a34a", borderRadius: 8, padding: 10, marginTop: 12, width: "100%" }}
+          onPress={() => setShowEditAccountModal(true)}
+        >
+          <Text style={{ color: "#fff", textAlign: "center" }}>Edit</Text>
         </TouchableOpacity>
       </View>
 
@@ -200,45 +267,47 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
         <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Logout</Text>
       </TouchableOpacity>
 
-      <Modal visible={showEmailModal} transparent animationType="slide">
+      <Modal visible={showEditAccountModal} transparent animationType="slide">
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#00000088" }}>
           <View style={{ backgroundColor: darkMode ? "#27272a" : "#fff", padding: 20, borderRadius: 10, width: "80%" }}>
-            <Text style={{ fontSize: 18, fontWeight: "600", marginBottom: 8, color: darkMode ? "#fff" : "#222" }}>Update Email</Text>
+            <Text style={{ fontSize: 18, fontWeight: "600", marginBottom: 8, color: darkMode ? "#fff" : "#222" }}>Edit Account Info</Text>
             <TextInput
-              placeholder="New Email"
-              value={newEmail}
-              onChangeText={setNewEmail}
+              placeholder="Email"
+              value={editAccount.email}
+              onChangeText={val => setEditAccount(prev => ({ ...prev, email: val }))}
               style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 5, padding: 8, marginBottom: 10, color: darkMode ? "#fff" : "#222", backgroundColor: darkMode ? "#18181b" : "#fff" }}
               autoCapitalize="none"
               keyboardType="email-address"
               placeholderTextColor={darkMode ? "#888" : "#999"}
             />
-            <TouchableOpacity style={{ backgroundColor: "#16a34a", borderRadius: 8, padding: 10, marginBottom: 8 }} onPress={handleUpdateEmail}>
-              <Text style={{ color: "#fff", textAlign: "center" }}>Save</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={{ backgroundColor: darkMode ? "#444" : "#e5e7eb", borderRadius: 8, padding: 10 }} onPress={() => setShowEmailModal(false)}>
-              <Text style={{ color: darkMode ? "#fff" : "#222", textAlign: "center" }}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={showPasswordModal} transparent animationType="slide">
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#00000088" }}>
-          <View style={{ backgroundColor: darkMode ? "#27272a" : "#fff", padding: 20, borderRadius: 10, width: "80%" }}>
-            <Text style={{ fontSize: 18, fontWeight: "600", marginBottom: 8, color: darkMode ? "#fff" : "#222" }}>Change Password</Text>
             <TextInput
-              placeholder="New Password"
-              value={newPassword}
-              onChangeText={setNewPassword}
+              placeholder="Address"
+              value={editAccount.address}
+              onChangeText={val => setEditAccount(prev => ({ ...prev, address: val }))}
               style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 5, padding: 8, marginBottom: 10, color: darkMode ? "#fff" : "#222", backgroundColor: darkMode ? "#18181b" : "#fff" }}
-              secureTextEntry
+              autoCapitalize="words"
               placeholderTextColor={darkMode ? "#888" : "#999"}
             />
-            <TouchableOpacity style={{ backgroundColor: "#16a34a", borderRadius: 8, padding: 10, marginBottom: 8 }} onPress={handleChangePassword}>
+            <TextInput
+              placeholder="License Number"
+              value={editAccount.license_number}
+              onChangeText={val => setEditAccount(prev => ({ ...prev, license_number: val }))}
+              style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 5, padding: 8, marginBottom: 10, color: darkMode ? "#fff" : "#222", backgroundColor: darkMode ? "#18181b" : "#fff" }}
+              autoCapitalize="characters"
+              placeholderTextColor={darkMode ? "#888" : "#999"}
+            />
+            <TextInput
+              placeholder="License Expiration"
+              value={editAccount.license_expiration}
+              onChangeText={val => setEditAccount(prev => ({ ...prev, license_expiration: val }))}
+              style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 5, padding: 8, marginBottom: 10, color: darkMode ? "#fff" : "#222", backgroundColor: darkMode ? "#18181b" : "#fff" }}
+              autoCapitalize="none"
+              placeholderTextColor={darkMode ? "#888" : "#999"}
+            />
+            <TouchableOpacity style={{ backgroundColor: "#16a34a", borderRadius: 8, padding: 10, marginBottom: 8 }} onPress={handleEditAccount}>
               <Text style={{ color: "#fff", textAlign: "center" }}>Save</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={{ backgroundColor: darkMode ? "#444" : "#e5e7eb", borderRadius: 8, padding: 10 }} onPress={() => setShowPasswordModal(false)}>
+            <TouchableOpacity style={{ backgroundColor: darkMode ? "#444" : "#e5e7eb", borderRadius: 8, padding: 10 }} onPress={() => setShowEditAccountModal(false)}>
               <Text style={{ color: darkMode ? "#fff" : "#222", textAlign: "center" }}>Cancel</Text>
             </TouchableOpacity>
           </View>

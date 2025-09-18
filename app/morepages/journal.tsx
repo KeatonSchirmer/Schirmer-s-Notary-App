@@ -5,7 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, Linking } from "react-native";
 import { useTheme } from "../../constants/ThemeContext";
 
-const API_BASE = "https://schirmer-s-notary-backend.onrender.com/journal";
+const API_BASE = "https://schirmer-s-notary-backend.onrender.com";
 
 type JournalEntry = {
   id?: any;
@@ -21,7 +21,6 @@ type JournalEntry = {
 
 export default function JournalScreen() {
   async function handleUploadDocument(entryId: any) {
-    // Prompt user for camera or file
     Alert.alert(
       'Upload Document',
       'Choose how to add your document',
@@ -73,38 +72,16 @@ export default function JournalScreen() {
     }
   }
   const { darkMode } = useTheme();
-  const [jobs, setJobs] = useState<any[]>([]);
-  const [selectedJobId, setSelectedJobId] = useState<string>("");
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newEntry, setNewEntry] = useState<JournalEntry>({
-    date: "",
-    client_name: "",
-    document_type: "",
-    id_type: "",
-    id_number: "",
-    signature: "",
-    notes: "",
-  });
-  const [scannedDoc, setScannedDoc] = useState<any>(null);
   const [editId, setEditId] = useState<any>(null);
   const [editEntry, setEditEntry] = useState<JournalEntry>({ date: "", client_name: "", document_type: "", id_type: "", id_number: "", signature: "", notes: "" });
 
   useEffect(() => {
-    async function fetchJobs() {
-      try {
-        const res = await fetch("https://schirmer-s-notary-backend.onrender.com/jobs/?status=completed");
-        const data = await res.json();
-        setJobs(data || []);
-      } catch {
-        // ignore job fetch errors
-      }
-    }
-    fetchJobs();
     async function fetchEntries() {
       setLoading(true);
       try {
-        const res = await fetch(`${API_BASE}/`);
+        const res = await fetch(`${API_BASE}/journal`);
         const data = await res.json();
         setEntries(data.entries || []);
       } catch {
@@ -115,93 +92,30 @@ export default function JournalScreen() {
     fetchEntries();
   }, []);
 
-  async function addEntry() {
+  async function saveEdit(id: any): Promise<void> {
     try {
-      let res;
-      if (scannedDoc) {
-        const formData = new FormData();
-        Object.entries(newEntry).forEach(([key, value]) => {
-          formData.append(key, value as string);
-        });
-        if (selectedJobId) {
-          formData.append('job_id', selectedJobId);
-        }
-        formData.append('file', {
-          uri: scannedDoc.uri,
-          name: scannedDoc.name || 'scanned.pdf',
-          type: 'application/pdf',
-        } as any);
-        res = await fetch(`${API_BASE}/new`, {
-          method: "POST",
-          headers: {
-            'Accept': 'application/json',
-          },
-          body: formData,
-        });
-      } else {
-        const entryData = { ...newEntry };
-        if (selectedJobId) {
-          entryData.job_id = selectedJobId;
-        }
-        res = await fetch(`${API_BASE}/new`, {
-          method: "POST",
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(entryData),
-        });
-      }
+      const res: Response = await fetch(`${API_BASE}/${id}/edit`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editEntry),
+      });
       if (res.ok) {
-        Alert.alert("Success", "Journal entry added");
-        setNewEntry({
-          date: "",
-          client_name: "",
-          document_type: "",
-          id_type: "",
-          id_number: "",
-          signature: "",
-          notes: "",
-        });
-        setScannedDoc(null);
-        const data = await res.json();
-        setEntries((prev) => [{ ...newEntry, id: data.id }, ...prev]);
+        Alert.alert("Success", "Entry updated");
+        setEditId(null);
+        // Optionally refresh entries
+        const updated = entries.map(e => e.id === id ? { ...editEntry, id } : e);
+        setEntries(updated);
       } else {
-        Alert.alert("Error", "Failed to add entry");
+        Alert.alert("Error", "Failed to update entry");
       }
     } catch {
-      Alert.alert("Error", "Failed to add entry");
+      Alert.alert("Error", "Failed to update entry");
     }
   }
 
-interface SaveEditResponse {
-    id: any;
-    [key: string]: any;
-}
-
-async function saveEdit(id: any): Promise<void> {
-    try {
-        const res: Response = await fetch(`${API_BASE}/${id}/edit`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(editEntry),
-        });
-        if (res.ok) {
-            Alert.alert("Success", "Entry updated");
-            setEditId(null);
-            // Optionally refresh entries
-        } else {
-            Alert.alert("Error", "Failed to update entry");
-        }
-    } catch {
-        Alert.alert("Error", "Failed to update entry");
-    }
-}
-
-interface DownloadPDFProps {
-    id: any;
-}
-
-function downloadPDF(id: DownloadPDFProps["id"]): void {
+  function downloadPDF(id: any): void {
     Linking.openURL(`${API_BASE}/${id}/pdf`);
-}
+  }
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: darkMode ? '#18181b' : '#f9fafb', padding: 16 }}>
@@ -250,74 +164,6 @@ function downloadPDF(id: DownloadPDFProps["id"]): void {
           </View>
         ))
       )}
-
-      <View style={{ backgroundColor: darkMode ? '#232326' : '#f3f4f6', padding: 16, borderRadius: 12, marginBottom: 24 }}>
-        <Text style={{ fontWeight: 'bold', marginBottom: 8, color: darkMode ? '#fff' : '#222' }}>Link to Completed Job</Text>
-        <Picker
-          selectedValue={selectedJobId}
-          onValueChange={(itemValue) => setSelectedJobId(itemValue)}
-          style={{ marginBottom: 8, color: darkMode ? '#fff' : '#222', backgroundColor: darkMode ? '#18181b' : '#fff' }}
-        >
-          <Picker.Item label="None" value="" />
-          {jobs.map((job: any) => (
-            <Picker.Item key={job.id} label={`#${job.id} - ${job.name || job.document_type || 'Job'}`} value={String(job.id)} />
-          ))}
-        </Picker>
-        {scannedDoc ? (
-          <View style={{ marginBottom: 8 }}>
-            <Text style={{ color: '#22c55e' }}>Scanned Document: {scannedDoc.name || scannedDoc.uri ? scannedDoc.name || 'scanned.pdf' : 'photo.jpg'}</Text>
-            <TouchableOpacity onPress={() => setScannedDoc(null)} style={{ backgroundColor: '#ef4444', padding: 6, borderRadius: 6, marginTop: 4 }}>
-              <Text style={{ color: '#fff', textAlign: 'center', fontWeight: 'bold' }}>Remove</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
-        <TouchableOpacity
-          onPress={() => {
-            Alert.alert(
-              'Attach Document',
-              'Choose how to add your document',
-              [
-                {
-                  text: 'Camera',
-                  onPress: async () => {
-                    const result = await ImagePicker.launchCameraAsync({
-                      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                      quality: 1,
-                    });
-                    if (!result.canceled && result.assets && result.assets.length > 0) {
-                      setScannedDoc({ uri: result.assets[0].uri, name: 'photo.jpg', mimeType: 'image/jpeg' });
-                    }
-                  },
-                },
-                {
-                  text: 'File',
-                  onPress: async () => {
-                    const result = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'] });
-                    if (result.assets && result.assets.length > 0) {
-                      setScannedDoc(result.assets[0]);
-                    }
-                  },
-                },
-                { text: 'Cancel', style: 'cancel' },
-              ]
-            );
-          }}
-          style={{ backgroundColor: '#2563eb', padding: 8, borderRadius: 8, marginBottom: 8 }}
-        >
-          <Text style={{ color: '#fff', textAlign: 'center', fontWeight: 'bold' }}>Scan & Attach Document (Camera or File)</Text>
-        </TouchableOpacity>
-        <Text style={{ fontWeight: 'bold', marginBottom: 8, color: darkMode ? '#fff' : '#222' }}>Add New Entry</Text>
-        <TextInput value={newEntry.date} onChangeText={(v) => setNewEntry((e) => ({ ...e, date: v }))} placeholder="Date" style={{ marginBottom: 8, color: darkMode ? '#fff' : '#222', backgroundColor: darkMode ? '#18181b' : '#fff', borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 6, padding: 8 }} />
-        <TextInput value={newEntry.client_name} onChangeText={(v) => setNewEntry((e) => ({ ...e, client_name: v }))} placeholder="Client Name" style={{ marginBottom: 8, color: darkMode ? '#fff' : '#222', backgroundColor: darkMode ? '#18181b' : '#fff', borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 6, padding: 8 }} />
-        <TextInput value={newEntry.document_type} onChangeText={(v) => setNewEntry((e) => ({ ...e, document_type: v }))} placeholder="Document Type" style={{ marginBottom: 8, color: darkMode ? '#fff' : '#222', backgroundColor: darkMode ? '#18181b' : '#fff', borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 6, padding: 8 }} />
-        <TextInput value={newEntry.id_type} onChangeText={(v) => setNewEntry((e) => ({ ...e, id_type: v }))} placeholder="ID Type" style={{ marginBottom: 8, color: darkMode ? '#fff' : '#222', backgroundColor: darkMode ? '#18181b' : '#fff', borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 6, padding: 8 }} />
-        <TextInput value={newEntry.id_number} onChangeText={(v) => setNewEntry((e) => ({ ...e, id_number: v }))} placeholder="ID Number" style={{ marginBottom: 8, color: darkMode ? '#fff' : '#222', backgroundColor: darkMode ? '#18181b' : '#fff', borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 6, padding: 8 }} />
-        <TextInput value={newEntry.signature} onChangeText={(v) => setNewEntry((e) => ({ ...e, signature: v }))} placeholder="Signature" style={{ marginBottom: 8, color: darkMode ? '#fff' : '#222', backgroundColor: darkMode ? '#18181b' : '#fff', borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 6, padding: 8 }} />
-        <TextInput value={newEntry.notes} onChangeText={(v) => setNewEntry((e) => ({ ...e, notes: v }))} placeholder="Notes" style={{ marginBottom: 8, color: darkMode ? '#fff' : '#222', backgroundColor: darkMode ? '#18181b' : '#fff', borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 6, padding: 8 }} multiline />
-        <TouchableOpacity onPress={addEntry} style={{ backgroundColor: '#22c55e', padding: 10, borderRadius: 8, marginTop: 8 }}>
-          <Text style={{ color: '#fff', textAlign: 'center', fontWeight: 'bold' }}>Add Entry</Text>
-        </TouchableOpacity>
-      </View>
     </ScrollView>
   );
 }

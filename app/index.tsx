@@ -48,20 +48,20 @@ function RequestsStack() {
   return (
     <Stack.Navigator>
       <Stack.Screen
-        name="RequestsHome"
+        name="JobsHome"
         component={Requests}
         options={{
-          title: "Requests",
+          title: "Jobs",
           headerStyle: { backgroundColor: darkMode ? "#18181b" : "#fff" },
           headerTitleStyle: { color: darkMode ? "#fff" : "#222" },
           headerTintColor: darkMode ? "#fff" : "#222",
         }}
       />
       <Stack.Screen
-        name="RequestDetail"
+        name="JobDetail"
         component={RequestDetail}
         options={{
-          title: "Request Detail",
+          title: "Job Detail",
           headerStyle: { backgroundColor: darkMode ? "#18181b" : "#fff" },
           headerTitleStyle: { color: darkMode ? "#fff" : "#222" },
           headerTintColor: darkMode ? "#fff" : "#222",
@@ -95,7 +95,7 @@ function MainApp() {
           let iconName: React.ComponentProps<typeof Ionicons>["name"] = "ellipsis-horizontal";
           if (route.name === "Dashboard") iconName = "home";
           else if (route.name === "Clients") iconName = "people";
-          else if (route.name === "Requests") iconName = "file-tray";
+          else if (route.name === "Jobs") iconName = "file-tray";
           else if (route.name === "Mileage") iconName = "car";
           else if (route.name === "More") iconName = "ellipsis-horizontal";
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -104,7 +104,7 @@ function MainApp() {
     >
       <Tab.Screen name="Dashboard" component={Dashboard} />
       <Tab.Screen name="Clients" component={ClientsStack} />
-      <Tab.Screen name="Requests" component={RequestsStack} />
+      <Tab.Screen name="Jobs" component={RequestsStack} />
       <Tab.Screen name="Mileage" component={Mileage} />
       <Tab.Screen name="More">
         {props => <More {...props} setLoggedIn={setLoggedIn} />}

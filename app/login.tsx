@@ -23,7 +23,6 @@ export default function LoginScreen({ navigation, setLoggedIn }: { navigation?: 
   }, []);
 
   useEffect(() => {
-    // Automatically try biometric login if enabled and available
     const tryBiometricLogin = async () => {
       if (biometricAvailable && biometricOptIn) {
         try {
@@ -62,7 +61,6 @@ export default function LoginScreen({ navigation, setLoggedIn }: { navigation?: 
         role: "admin"
       });
       setLoggedIn(true);
-      // If biometric is enabled, update credentials
       if (biometricAvailable && biometricOptIn) {
         await SecureStore.setItemAsync("biometricEmail", email);
         await SecureStore.setItemAsync("biometricPassword", password);

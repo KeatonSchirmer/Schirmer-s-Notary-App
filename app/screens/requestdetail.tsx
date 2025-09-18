@@ -1,6 +1,6 @@
 import { View, Text, TouchableOpacity } from "react-native";
 import * as DocumentPicker from 'expo-document-picker';
-import { TextInput } from "react-native";
+import { TextInput, Modal } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import apiRequest from "../../api";
 import React, { useState, useEffect } from "react";
@@ -44,6 +44,10 @@ export default function RequestDetail({ route }: { route: any }) {
   const [error, setError] = useState("");
   const { darkMode } = useTheme();
 
+  // Journal modal state
+  const [journalModalVisible, setJournalModalVisible] = useState(false);
+  const [journalNotes, setJournalNotes] = useState("");
+
   useEffect(() => {
     async function fetchRequestDetail() {
       setLoading(true);
@@ -78,6 +82,34 @@ export default function RequestDetail({ route }: { route: any }) {
     }
   };
 
+  // Add journal entry and mark booking completed
+  const handleAddJournalEntry = async () => {
+    if (!request) return;
+    try {
+      // 1. Create journal entry and connect to job
+      await apiRequest(
+        `https://schirmer-s-notary-backend.onrender.com/journal/add`,
+        "POST",
+        {
+          job_id: request.id,
+          title: `Journal Entry for Booking #${request.id}`,
+          notes: journalNotes,
+        }
+      );
+      // 2. Mark booking as completed
+      await apiRequest(
+        `https://schirmer-s-notary-backend.onrender.com/jobs/${request.id}/complete`,
+        "PATCH"
+      );
+      alert("Journal entry added and booking marked as completed.");
+      setJournalModalVisible(false);
+      setJournalNotes("");
+      // Optionally refresh request details
+      // You may want to reload the request here
+    } catch (err) {
+      alert("Failed to add journal entry or mark booking completed.");
+    }
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: darkMode ? '#18181b' : '#f9fafb' }}>
@@ -152,6 +184,12 @@ export default function RequestDetail({ route }: { route: any }) {
                 <Text style={{ color: '#fff', textAlign: 'center' }}>Scan & Upload PDF</Text>
               </TouchableOpacity>
               <TouchableOpacity
+                style={{ backgroundColor: '#a855f7', borderRadius: 8, padding: 10, marginTop: 12, alignSelf: 'flex-end' }}
+                onPress={() => setJournalModalVisible(true)}
+              >
+                <Text style={{ color: '#fff', textAlign: 'center' }}>Add Journal Entry & Complete Booking</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
                 style={{ backgroundColor: '#ef4444', borderRadius: 8, padding: 10, marginTop: 12, alignSelf: 'flex-end' }}
                 onPress={handleDeleteRequest}
               >
@@ -169,6 +207,35 @@ export default function RequestDetail({ route }: { route: any }) {
           </TouchableOpacity>
         </View>
       </View>
+      {/* Journal Entry Modal */}
+      <Modal visible={journalModalVisible} transparent animationType="slide">
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#00000088" }}>
+          <View style={{ backgroundColor: darkMode ? '#27272a' : '#fff', padding: 20, borderRadius: 10, width: "80%" }}>
+            <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 8, color: darkMode ? '#fff' : '#222' }}>Add Journal Entry</Text>
+            <TextInput
+              placeholder="Journal notes"
+              placeholderTextColor={darkMode ? '#888' : '#999'}
+              value={journalNotes}
+              onChangeText={setJournalNotes}
+              style={{ borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 5, padding: 8, marginBottom: 10, color: darkMode ? '#fff' : '#222', backgroundColor: darkMode ? '#18181b' : '#fff' }}
+              multiline
+              numberOfLines={4}
+            />
+            <TouchableOpacity
+              style={{ backgroundColor: '#a855f7', borderRadius: 8, padding: 10, marginBottom: 8 }}
+              onPress={handleAddJournalEntry}
+            >
+              <Text style={{ color: '#fff', textAlign: 'center' }}>Save & Complete Booking</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ backgroundColor: darkMode ? '#444' : '#e5e7eb', borderRadius: 8, padding: 10 }}
+              onPress={() => setJournalModalVisible(false)}
+            >
+              <Text style={{ color: darkMode ? '#fff' : '#222', textAlign: 'center' }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

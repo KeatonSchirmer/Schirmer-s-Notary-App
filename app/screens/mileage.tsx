@@ -1,9 +1,3 @@
-function formatTime(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-}
 import { View, Text, TouchableOpacity, ScrollView } from "react-native";
 import { Modal, TextInput, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -12,11 +6,22 @@ import React, { useState, useEffect } from "react";
 import * as Location from "expo-location";
 import haversine from "haversine";
 import { useTheme } from "../../constants/ThemeContext";
+import { Picker } from '@react-native-picker/picker';
+
+function formatTime(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
 
 export default function Mileage() {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editEntry, setEditEntry] = useState<any>(null);
   const [editPurpose, setEditPurpose] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [editJobId, setEditJobId] = useState<string | null>(null);
+  const [jobs, setJobs] = useState<any[]>([]);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [entries, setEntries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,6 +59,8 @@ export default function Mileage() {
         setEditModalVisible(false);
         setEditEntry(null);
         setEditPurpose("");
+        setEditNotes("");
+        setEditJobId(null);
       } catch (err) {
         setError("No mileage entries");
       } finally {
@@ -61,6 +68,14 @@ export default function Mileage() {
       }
     }
     fetchMileage();
+    async function fetchJobs() {
+      try {
+        const data = await apiRequest("https://schirmer-s-notary-backend.onrender.com/jobs/");
+        setJobs(Array.isArray(data) ? data : data.jobs || []);
+      } catch (err) {
+      }
+    }
+    fetchJobs();
   }, []);
 
   const startTracking = async () => {
@@ -77,25 +92,23 @@ export default function Mileage() {
       setStopTime(null);
       setElapsedTime(0);
 
-      // Get initial location and set as lastLocation
       const initialLocation = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       setLastLocation(initialLocation);
 
       const sub = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.High,
-          distanceInterval: 5, // more frequent updates for accuracy
+          distanceInterval: 5,
         },
         (location) => {
           try {
-            // Only add distance if location is valid and not duplicate
             if (lastLocation && (location.coords.latitude !== lastLocation.coords.latitude || location.coords.longitude !== lastLocation.coords.longitude)) {
               const newDistance = haversine(
                 { latitude: lastLocation.coords.latitude, longitude: lastLocation.coords.longitude },
                 { latitude: location.coords.latitude, longitude: location.coords.longitude },
                 { unit: "mile" }
               );
-              if (newDistance > 0.0001) { // ignore tiny/noisy jumps
+              if (newDistance > 0.0001) {
                 setDistance((prev) => prev + newDistance);
               }
             }
@@ -119,9 +132,9 @@ export default function Mileage() {
       watcher.remove();
       setWatcher(null);
     }
-  setTracking(false);
-  setStopTime(Date.now());
-  setElapsedTime(0);
+    setTracking(false);
+    setStopTime(Date.now());
+    setElapsedTime(0);
 
     let timeTraveled = 0;
     if (startTime) {
@@ -130,19 +143,17 @@ export default function Mileage() {
 
     try {
       const res = await apiRequest("https://schirmer-s-notary-backend.onrender.com/mileage/add", "POST", {
-        miles: parseFloat(distance.toFixed(2)),
+        distance: parseFloat(distance.toFixed(2)),
         purpose: "Tracked Trip",
         date: new Date().toISOString().slice(0, 10),
         time: timeTraveled,
       } as any, { "X-User-Id": String(userId) });
-      console.log("Mileage save response:", res);
       if (res && res.error) {
         setError(res.error);
         alert("Error: " + res.error);
       } else {
         alert("Mileage saved!");
       }
-      // Refetch entries from backend to ensure UI is up to date
       setLoading(true);
       setError("");
       try {
@@ -157,6 +168,15 @@ export default function Mileage() {
       setError("Failed to save mileage");
       alert("Failed to save mileage");
     }
+  };
+
+  // Open edit modal and set fields
+  const openEditModal = (entry: any) => {
+    setEditEntry(entry);
+    setEditPurpose(entry.purpose || "");
+    setEditNotes(entry.notes || "");
+    setEditJobId(entry.job_id ? String(entry.job_id) : null);
+    setEditModalVisible(true);
   };
 
   return (
@@ -196,15 +216,13 @@ export default function Mileage() {
                 <Text style={{ color: darkMode ? '#d1d5db' : '#6b7280' }}>
                   {entry.miles} miles — {entry.purpose}
                   {entry.time ? ` — ${formatTime(Math.round(entry.time))}` : ""}
+                  {entry.notes ? `\nNotes: ${entry.notes}` : ""}
+                  {entry.job_id ? `\nJob: ${jobs.find(j => j.id === entry.job_id)?.title || entry.job_id}` : ""}
                 </Text>
                 <View style={{ flexDirection: 'row', marginTop: 8 }}>
                   <TouchableOpacity
                     style={{ backgroundColor: '#2563eb', borderRadius: 8, padding: 8, marginRight: 8 }}
-                    onPress={() => {
-                      setEditEntry(entry);
-                      setEditPurpose(entry.purpose || "");
-                      setEditModalVisible(true);
-                    }}
+                    onPress={() => openEditModal(entry)}
                   >
                     <Text style={{ color: '#fff' }}>Edit</Text>
                   </TouchableOpacity>
@@ -253,19 +271,43 @@ export default function Mileage() {
             <View style={{ backgroundColor: darkMode ? '#27272a' : '#fff', padding: 20, borderRadius: 10, width: "80%" }}>
               <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 8, color: darkMode ? '#fff' : '#222' }}>Edit Mileage Entry</Text>
               <TextInput
-                placeholder="Purpose / Notes"
+                placeholder="Purpose"
                 placeholderTextColor={darkMode ? '#888' : '#999'}
                 value={editPurpose}
                 onChangeText={setEditPurpose}
                 style={{ borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 5, padding: 8, marginBottom: 10, color: darkMode ? '#fff' : '#222', backgroundColor: darkMode ? '#18181b' : '#fff' }}
               />
+              <TextInput
+                placeholder="Notes"
+                placeholderTextColor={darkMode ? '#888' : '#999'}
+                value={editNotes}
+                onChangeText={setEditNotes}
+                style={{ borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 5, padding: 8, marginBottom: 10, color: darkMode ? '#fff' : '#222', backgroundColor: darkMode ? '#18181b' : '#fff' }}
+              />
+              <View style={{ marginBottom: 10 }}>
+                <Text style={{ color: darkMode ? '#fff' : '#222', marginBottom: 4 }}>Connect to Job:</Text>
+                <View style={{ borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 5, backgroundColor: darkMode ? '#18181b' : '#fff' }}>
+                  <Picker
+                    selectedValue={editJobId}
+                    onValueChange={(itemValue) => setEditJobId(itemValue)}
+                    style={{ color: darkMode ? '#fff' : '#222', height: 40 }}
+                  >
+                    <Picker.Item label="None" value={null} />
+                    {jobs.map((job: any) => (
+                      <Picker.Item key={job.id} label={job.title || `Job #${job.id}`} value={String(job.id)} />
+                    ))}
+                  </Picker>
+                </View>
+              </View>
               <TouchableOpacity
                 style={{ backgroundColor: '#2563eb', borderRadius: 8, padding: 10, marginBottom: 8 }}
                 onPress={async () => {
                   if (!editEntry) return;
                   try {
                     await apiRequest(`https://schirmer-s-notary-backend.onrender.com/mileage/${editEntry.id}`, "PUT", {
-                      purpose: editPurpose
+                      purpose: editPurpose,
+                      notes: editNotes,
+                      job_id: editJobId ? Number(editJobId) : null,
                     }, { "X-User-Id": String(userId) });
                     setEditModalVisible(false);
                     setLoading(true);
