@@ -95,6 +95,12 @@ export default function JournalScreen() {
         {
           text: 'Camera',
           onPress: async () => {
+            // Request permission first
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== 'granted') {
+              Alert.alert('Permission Denied', 'Camera permission is required to take a photo.');
+              return;
+            }
             const result = await ImagePicker.launchCameraAsync({
               mediaTypes: ImagePicker.MediaTypeOptions.Images,
               quality: 1,

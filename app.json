@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "buildNumber": "1.2.6",
+      "buildNumber": "1.2.11",
       "supportsTablet": true,
       "usesPushNotifications": true,
       "icon": "./assets/images/SchirmersNotary.png",
@@ -17,10 +17,12 @@
       "aps-environment": "production",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "This app uses the camera to scan and upload documents.",
         "NSLocationWhenInUseUsageDescription": "This app uses your location to track mileage for your trips.",
         "UIBackgroundModes": [
           "remote-notification"
         ],
+        "CFBundleDisplayName": "Schirmers Notary",
         "NSUserTrackingUsageDescription": "This identifier will be used to send you notifications.",
         "UIRequiresPersistentWiFi": false
       }

@@ -49,41 +49,6 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
   }, []);
 
   useEffect(() => {
-    if (notifications) {
-      registerForPushNotificationsAsync();
-    }
-  }, [notifications]);
-
-  async function registerForPushNotificationsAsync() {
-    try {
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
-      if (existingStatus !== "granted") {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-      if (finalStatus !== "granted") {
-        Alert.alert("Permission required", "Enable notifications in settings.");
-        return;
-      }
-      const tokenData = await Notifications.getExpoPushTokenAsync({
-        projectId: Constants.expoConfig?.extra?.eas?.projectId,
-      });
-      console.log("Expo Push Token:", tokenData.data);
-      setExpoPushToken(tokenData.data);
-      await apiRequest(
-        "https://schirmer-s-notary-backend.onrender.com/auth/profile/update",
-        "PATCH",
-        { push_token: tokenData.data },
-        { "X-User-Id": String(userId) }
-      );
-    } catch (err) {
-      console.log("Notification registration error:", err);
-      Alert.alert("Error", "Could not register for notifications.");
-    }
-  }
-
-  useEffect(() => {
     async function fetchAccountInfo() {
       try {
         const res = await apiRequest(
@@ -191,18 +156,49 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
     }
   };
 
+  // --- NOTIFICATION TOGGLE LOGIC ---
   const handleToggleNotifications = async (value: boolean) => {
     setNotifications(value);
     await AsyncStorage.setItem('notifications_enabled', value ? 'true' : 'false');
     try {
-      await apiRequest('https://schirmer-s-notary-backend.onrender.com/auth/profile/update', 'PATCH', { notifications_enabled: value } as any, { 'X-User-Id': String(userId) });
       if (value) {
-        await registerForPushNotificationsAsync();
+        // Request permission and register for push notifications
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+        if (existingStatus !== "granted") {
+          const { status } = await Notifications.requestPermissionsAsync();
+          finalStatus = status;
+        }
+        if (finalStatus !== "granted") {
+          setNotifications(false);
+          await AsyncStorage.setItem('notifications_enabled', 'false');
+          Alert.alert("Permission required", "Enable notifications in settings.");
+          return;
+        }
+        const projectId = Constants.expoConfig?.extra?.eas?.projectId || "d2632826-82a5-4678-b911-3ccdcf62864b";
+        const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+        setExpoPushToken(tokenData.data);
+        await apiRequest(
+          "https://schirmer-s-notary-backend.onrender.com/auth/profile/update",
+          "PATCH",
+          { push_token: tokenData.data },
+          { "X-User-Id": String(userId) }
+        );
+        Alert.alert("Success", "Push notifications enabled.");
       } else {
         setExpoPushToken(null);
-        await apiRequest('https://schirmer-s-notary-backend.onrender.com/auth/profile/update', 'PATCH', { push_token: null } as any, { 'X-User-Id': String(userId) });
+        await apiRequest(
+          "https://schirmer-s-notary-backend.onrender.com/auth/profile/update",
+          "PATCH",
+          { push_token: null },
+          { "X-User-Id": String(userId) }
+        );
+        await Notifications.setBadgeCountAsync(0);
+        Alert.alert("Notifications Disabled", "You will no longer receive push notifications.");
       }
     } catch (err) {
+      setNotifications(false);
+      await AsyncStorage.setItem('notifications_enabled', 'false');
       Alert.alert("Error", "Failed to update notifications.");
     }
   };

@@ -45,7 +45,6 @@ export default function Requests({ navigation }: RequestsProps) {
   const { darkMode } = useTheme();
   const [filter, setFilter] = useState<'all' | 'pending' | 'accepted' | 'denied' | 'completed'>('all');
   const { setPendingCount } = useContext(PendingCountContext);
-
   useEffect(() => {
     let interval: number;
     async function fetchRequests() {
@@ -69,6 +68,7 @@ export default function Requests({ navigation }: RequestsProps) {
         const prevPending = await AsyncStorage.getItem('pending_count');
         const currentPending = items.filter((r: any) => r.status === "pending").length;
         setPendingCount(currentPending);
+        Notifications.setBadgeCountAsync(currentPending);
         if (prevPending !== null && Number(prevPending) < currentPending) {
           Notifications.scheduleNotificationAsync({
             content: {
@@ -86,9 +86,10 @@ export default function Requests({ navigation }: RequestsProps) {
       }
     }
     fetchRequests();
-    interval = setInterval(fetchRequests, 15000);
-    return () => clearInterval(interval);
   }, []);
+
+;
+
 
   const filteredRequests =
     filter === 'all'
