@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Modal, Alert, ScrollView } from "react-na
 import apiRequest from "../../api";
 import { useTheme } from "../../constants/ThemeContext";
 import { Picker } from "@react-native-picker/picker";
+import { useRoute } from '@react-navigation/native';
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
@@ -12,16 +13,45 @@ const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
 });
 
 export default function CalendarScreen() {
+  type CalendarRouteParams = {
+    selectedYear?: number;
+    selectedMonth?: number;
+    selectedDay?: number;
+  };
+  const route = useRoute();
+  const { selectedYear, selectedMonth, selectedDay } = (route.params as CalendarRouteParams) || {};
+
+  const initialDate = selectedYear !== undefined && selectedMonth !== undefined && selectedMonth >= 0 && selectedDay !== undefined
+    ? new Date(selectedYear, selectedMonth, selectedDay)
+    : new Date();
+
+  const [currentDate, setCurrentDate] = useState(initialDate);
+  const [selectedDate, setSelectedDate] = useState<number | null>(selectedDay ?? initialDate.getDate());
+
   const { darkMode } = useTheme();
   const [dayAvailabilities, setDayAvailabilities] = useState<{
     [day: string]: { start: string; end: string };
   }>({});
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState<number | null>(null);
   const [events, setEvents] = useState<any[]>([]);
   const [editDays, setEditDays] = useState<string[]>([]);
   const [editTimes, setEditTimes] = useState<{ [day: string]: { start: string; end: string } }>({});
+
+  useEffect(() => {
+    if (
+      selectedYear !== undefined &&
+      selectedMonth !== undefined &&
+      selectedMonth >= 0 &&
+      selectedDay !== undefined
+    ) {
+      const newDate = new Date(selectedYear, selectedMonth, selectedDay);
+      setCurrentDate(newDate);
+      setSelectedDate(selectedDay);
+    }
+  }, [selectedYear, selectedMonth, selectedDay]);
+
+
+
   async function fetchAvailability() {
     try {
       const res = await apiRequest(
@@ -52,7 +82,6 @@ export default function CalendarScreen() {
     }
   }
 
-  // Fetch events for the current month
   async function fetchEventsForMonth(year: number, month: number) {
     try {
       const res = await apiRequest(
@@ -75,10 +104,11 @@ export default function CalendarScreen() {
 
   useEffect(() => {
     fetchEventsForMonth(currentDate.getFullYear(), currentDate.getMonth());
-    setSelectedDate(null); // Deselect date when month changes
-  }, [currentDate]);
+    if (selectedDay === undefined || selectedDay === null) {
+      setSelectedDate(null);
+    }
+  }, [currentDate, selectedDay]);
 
-  // Calendar generation
   function generateCalendar(date: Date) {
     const year = date.getFullYear();
     const month = date.getMonth();
@@ -104,22 +134,26 @@ export default function CalendarScreen() {
 
   const weeks = generateCalendar(currentDate);
 
-  // Get events for selected date
   function getEventsForSelectedDate() {
     if (!selectedDate) return [];
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
+
     return events.filter((event: any) => {
-      const eventDate = new Date(event.date || event.start_date);
+      const rawDate = event.date || event.start_date;
+      if (!rawDate) return false;
+
+      const [datePart] = rawDate.split("T");
+      const [eventYear, eventMonth, eventDay] = datePart.split("-").map(Number);
+
       return (
-        eventDate.getFullYear() === year &&
-        eventDate.getMonth() === month &&
-        eventDate.getDate() === selectedDate
+        eventYear === year &&
+        eventMonth - 1 === month &&
+        eventDay === selectedDate
       );
     });
   }
 
-  // --- Availability Modal with selectable days and dropdowns ---
   function handleToggleEditDay(day: string) {
     setEditDays(prev =>
       prev.includes(day)
@@ -135,7 +169,6 @@ export default function CalendarScreen() {
 
   useEffect(() => {
     if (editModalVisible) {
-      // Initialize editDays and editTimes from current availabilities
       setEditDays(Object.keys(dayAvailabilities));
       setEditTimes({ ...dayAvailabilities });
     }

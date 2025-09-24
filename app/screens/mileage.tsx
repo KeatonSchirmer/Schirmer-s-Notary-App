@@ -2,7 +2,7 @@ import { View, Text, TouchableOpacity, ScrollView } from "react-native";
 import { Modal, TextInput, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import apiRequest from "../../api";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import * as Location from "expo-location";
 import haversine from "haversine";
 import { useTheme } from "../../constants/ThemeContext";
@@ -33,6 +33,11 @@ export default function Mileage() {
   const [startTime, setStartTime] = useState<number | null>(null);
   const [stopTime, setStopTime] = useState<number | null>(null);
   const { darkMode } = useTheme();
+  const lastLocationRef = useRef<any>(null);
+  const [titleModalVisible, setTitleModalVisible] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [pendingMileage, setPendingMileage] = useState<{ distance: number, time: number } | null>(null);
+
 
   useEffect(() => {
     let timer: any = null;
@@ -58,7 +63,6 @@ export default function Mileage() {
         setEntries(Array.isArray(data) ? data : data.entries || []);
         setEditModalVisible(false);
         setEditEntry(null);
-        setEditPurpose("");
         setEditNotes("");
         setEditJobId(null);
       } catch (err) {
@@ -88,12 +92,14 @@ export default function Mileage() {
       setTracking(true);
       setDistance(0);
       setLastLocation(null);
+      lastLocationRef.current = null; // <-- reset ref
       setStartTime(Date.now());
       setStopTime(null);
       setElapsedTime(0);
 
       const initialLocation = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       setLastLocation(initialLocation);
+      lastLocationRef.current = initialLocation; // <-- set ref
 
       const sub = await Location.watchPositionAsync(
         {
@@ -102,9 +108,13 @@ export default function Mileage() {
         },
         (location) => {
           try {
-            if (lastLocation && (location.coords.latitude !== lastLocation.coords.latitude || location.coords.longitude !== lastLocation.coords.longitude)) {
+            if (
+              lastLocationRef.current &&
+              (location.coords.latitude !== lastLocationRef.current.coords.latitude ||
+                location.coords.longitude !== lastLocationRef.current.coords.longitude)
+            ) {
               const newDistance = haversine(
-                { latitude: lastLocation.coords.latitude, longitude: lastLocation.coords.longitude },
+                { latitude: lastLocationRef.current.coords.latitude, longitude: lastLocationRef.current.coords.longitude },
                 { latitude: location.coords.latitude, longitude: location.coords.longitude },
                 { unit: "mile" }
               );
@@ -113,6 +123,7 @@ export default function Mileage() {
               }
             }
             setLastLocation(location);
+            lastLocationRef.current = location; // <-- update ref
           } catch (err: any) {
             setError("Error calculating distance: " + String(err));
             console.error("Mileage tracking error:", err);
@@ -141,12 +152,20 @@ export default function Mileage() {
       timeTraveled = ((Date.now() - startTime) / 1000);
     }
 
+    // Instead of saving immediately, show title modal
+    setPendingMileage({ distance: parseFloat(distance.toFixed(2)), time: timeTraveled });
+    setTitleModalVisible(true);
+  };
+
+  const handleSaveMileageWithTitle = async () => {
+    if (!pendingMileage) return;
     try {
       const res = await apiRequest("https://schirmer-s-notary-backend.onrender.com/mileage/add", "POST", {
-        distance: parseFloat(distance.toFixed(2)),
-        purpose: "Tracked Trip",
+        distance: pendingMileage.distance,
         date: new Date().toISOString().slice(0, 10),
-        time: timeTraveled,
+        time: pendingMileage.time,
+        notes: "",
+        title: newTitle,
       } as any, { "X-User-Id": String(userId) });
       if (res && res.error) {
         setError(res.error);
@@ -154,6 +173,9 @@ export default function Mileage() {
       } else {
         alert("Mileage saved!");
       }
+      setTitleModalVisible(false);
+      setNewTitle("");
+      setPendingMileage(null);
       setLoading(true);
       setError("");
       try {
@@ -167,10 +189,12 @@ export default function Mileage() {
     } catch (err) {
       setError("Failed to save mileage");
       alert("Failed to save mileage");
+      setTitleModalVisible(false);
+      setNewTitle("");
+      setPendingMileage(null);
     }
   };
 
-  // Open edit modal and set fields
   const openEditModal = (entry: any) => {
     setEditEntry(entry);
     setEditPurpose(entry.purpose || "");
@@ -212,12 +236,15 @@ export default function Mileage() {
           ) : Array.isArray(entries) ? (
             entries.map((entry: any) => (
               <View key={entry.id} style={{ backgroundColor: darkMode ? '#27272a' : '#fff', padding: 16, borderRadius: 16, marginBottom: 12, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8 }}>
-                <Text style={{ fontWeight: 'bold', color: darkMode ? '#fff' : '#222' }}>{entry.date}</Text>
+                <Text style={{ fontWeight: 'bold', color: darkMode ? '#fff' : '#222', fontSize: 16 }}>
+                  {entry.title || "Untitled Trip"}
+                </Text>
                 <Text style={{ color: darkMode ? '#d1d5db' : '#6b7280' }}>
-                  {entry.miles} miles — {entry.purpose}
-                  {entry.time ? ` — ${formatTime(Math.round(entry.time))}` : ""}
+                  {entry.distance ?? entry.miles} miles
+                  {entry.time ? ` — ${formatTime(Math.round(Number(entry.time)))}` : ""}
                   {entry.notes ? `\nNotes: ${entry.notes}` : ""}
                   {entry.job_id ? `\nJob: ${jobs.find(j => j.id === entry.job_id)?.title || entry.job_id}` : ""}
+                  {entry.date ? `\nDate: ${entry.date}` : ""}
                 </Text>
                 <View style={{ flexDirection: 'row', marginTop: 8 }}>
                   <TouchableOpacity
@@ -265,18 +292,51 @@ export default function Mileage() {
           )}
         </ScrollView>
 
+        {/* Title Modal */}
+        <Modal visible={titleModalVisible} transparent animationType="slide">
+          <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#00000088" }}>
+            <View style={{ backgroundColor: darkMode ? '#27272a' : '#fff', padding: 20, borderRadius: 10, width: "80%" }}>
+              <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 8, color: darkMode ? "#fff" : "#222" }}>Enter Trip Title</Text>
+              <TextInput
+                placeholder="Trip Title"
+                value={newTitle}
+                onChangeText={setNewTitle}
+                style={{
+                  borderWidth: 1,
+                  borderColor: darkMode ? "#444" : "#ccc",
+                  borderRadius: 5,
+                  padding: 8,
+                  marginBottom: 10,
+                  color: darkMode ? "#fff" : "#222",
+                  backgroundColor: darkMode ? "#18181b" : "#fff"
+                }}
+                placeholderTextColor={darkMode ? "#888" : "#999"}
+              />
+              <TouchableOpacity
+                style={{ backgroundColor: "#16a34a", borderRadius: 8, padding: 10, marginBottom: 8 }}
+                onPress={handleSaveMileageWithTitle}
+              >
+                <Text style={{ color: "#fff", textAlign: "center" }}>Save Mileage</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ backgroundColor: darkMode ? "#444" : "#e5e7eb", borderRadius: 8, padding: 10 }}
+                onPress={() => {
+                  setTitleModalVisible(false);
+                  setNewTitle("");
+                  setPendingMileage(null);
+                }}
+              >
+                <Text style={{ color: darkMode ? "#fff" : "#222", textAlign: "center" }}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>        
+
         {/* Edit Modal */}
         <Modal visible={editModalVisible} transparent animationType="slide">
           <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#00000088" }}>
             <View style={{ backgroundColor: darkMode ? '#27272a' : '#fff', padding: 20, borderRadius: 10, width: "80%" }}>
               <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 8, color: darkMode ? '#fff' : '#222' }}>Edit Mileage Entry</Text>
-              <TextInput
-                placeholder="Purpose"
-                placeholderTextColor={darkMode ? '#888' : '#999'}
-                value={editPurpose}
-                onChangeText={setEditPurpose}
-                style={{ borderWidth: 1, borderColor: darkMode ? '#444' : '#ccc', borderRadius: 5, padding: 8, marginBottom: 10, color: darkMode ? '#fff' : '#222', backgroundColor: darkMode ? '#18181b' : '#fff' }}
-              />
               <TextInput
                 placeholder="Notes"
                 placeholderTextColor={darkMode ? '#888' : '#999'}

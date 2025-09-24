@@ -9,14 +9,19 @@ import Mileage from "./screens/mileage";
 import More from "./morepages/morestack";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import LoginScreen from "./login";
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
 import ThemeProvider, { useTheme } from "../constants/ThemeContext";
+import { useEffect } from "react";
+import apiRequest from "../api";
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { PendingCountProvider, PendingCountContext } from "@/components/PendingCountContext";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
 function ClientsStack() {
   const { darkMode } = useTheme();
+  
   return (
     <Stack.Navigator>
       <Stack.Screen
@@ -76,6 +81,23 @@ function RequestsStack() {
 function MainApp() {
   const [loggedIn, setLoggedIn] = useState(false);
   const { darkMode } = useTheme();
+  const { pendingCount, setPendingCount } = useContext(PendingCountContext);
+
+
+
+  useEffect(() => {
+    async function fetchPendingCount() {
+      try {
+        const data = await apiRequest("https://schirmer-s-notary-backend.onrender.com/jobs/pending", "GET");
+        const requests = Array.isArray(data) ? data : data.requests || [];
+        const count = requests.filter((r: any) => r.status === "pending").length;
+        setPendingCount(count);
+      } catch {
+        setPendingCount(0);
+      }
+    }
+    fetchPendingCount();
+  }, []);  
 
   if (!loggedIn) {
     return <LoginScreen navigation={null} setLoggedIn={setLoggedIn} />;
@@ -104,7 +126,9 @@ function MainApp() {
     >
       <Tab.Screen name="Dashboard" component={Dashboard} />
       <Tab.Screen name="Clients" component={ClientsStack} />
-      <Tab.Screen name="Jobs" component={RequestsStack} />
+      <Tab.Screen name="Jobs" component={RequestsStack} 
+        options={{ tabBarBadge: pendingCount > 0 ? pendingCount : undefined }}
+      />
       <Tab.Screen name="Mileage" component={Mileage} />
       <Tab.Screen name="More">
         {props => <More {...props} setLoggedIn={setLoggedIn} />}
@@ -115,8 +139,12 @@ function MainApp() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <MainApp />
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider>
+        <PendingCountProvider>
+          <MainApp />
+        </PendingCountProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }

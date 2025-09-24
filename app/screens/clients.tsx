@@ -7,6 +7,8 @@ import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Alert } fro
 import { StackNavigationProp } from "@react-navigation/stack";
 import { useTheme } from "../../constants/ThemeContext";
 import apiRequest from "../../api";
+import { useFocusEffect } from '@react-navigation/native';
+
 type Client = {
   id: string;
   name: string;
@@ -18,6 +20,7 @@ type GroupedClients = {
   [company: string]: Client[];
 };
 
+
 const ClientsScreen: React.FC<ClientsScreenProps> = ({ navigation }) => {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,21 +31,29 @@ const ClientsScreen: React.FC<ClientsScreenProps> = ({ navigation }) => {
   const [company, setCompany] = useState("");
   const { darkMode } = useTheme();
 
+  const fetchClients = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const data = await apiRequest("https://schirmer-s-notary-backend.onrender.com/clients/all");
+      setClients(data.clients || []);
+    } catch (err) {
+      setError("Failed to load clients");
+    }
+    setLoading(false);
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchClients();
+    }, [])
+  );
+
   useEffect(() => {
-    const fetchClients = async () => {
-      setLoading(true);
-      setError("");
-      try {
-  const data = await apiRequest("https://schirmer-s-notary-backend.onrender.com/clients/all");
-        setClients(data.clients || []);
-      } catch (err) {
-        setError("Failed to load clients");
-      }
-      setLoading(false);
-    };
     fetchClients();
   }, []);
 
+  
   const groupedClients: GroupedClients = clients.reduce((acc: GroupedClients, client: Client) => {
     const comp = client.company && client.company !== "" ? client.company : client.name;
     if (!acc[comp]) acc[comp] = [];
@@ -101,10 +112,7 @@ const ClientsScreen: React.FC<ClientsScreenProps> = ({ navigation }) => {
                 onPress={() => {
                   const client = groupedClients[company][0];
                   if (!client.company || client.company === "") {
-                    navigation.navigate("ClientDetail", { company: null, clientId: client.id, onDelete: async () => {
-                      const data = await apiRequest("/contacts/all");
-                      setClients(data.clients || []);
-                    }});
+                    navigation.navigate("ClientDetail", { company: null, clientId: client.id });
                   } else {
                     navigation.navigate("ClientDetail", { company });
                   }

@@ -8,6 +8,7 @@ import { useTheme } from "../../constants/ThemeContext";
 export default function ClientDetail({ route, navigation }: { route: any, navigation: any }) {
   const { darkMode } = useTheme();
   const { company } = route.params;
+  const clientId = route.params?.clientId;
   const [contacts, setContacts] = useState<any[]>([]);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editContact, setEditContact] = useState<any>(null);
@@ -22,19 +23,16 @@ export default function ClientDetail({ route, navigation }: { route: any, naviga
   const [newPhone, setNewPhone] = useState("");
   const [isClientOnly, setIsClientOnly] = useState(false);
 
-  // Fetch contacts for this company
   const fetchContacts = async () => {
     try {
       if (!company || company === "Other" || company === "" || company === null) {
-        // Fetch all clients without a company
     const res = await apiRequest("https://schirmer-s-notary-backend.onrender.com/clients/all");
         const clientOnly = (res.clients || []).filter((c: any) => !c.company || c.company === "" || c.company === null);
-        // Only show the selected client (from navigation)
         if (route.params && route.params.clientId) {
           const selected = clientOnly.find((c: any) => c.id === route.params.clientId);
           setContacts(selected ? [selected] : []);
         } else {
-          setContacts([]);
+          setContacts(res.clients || []);
         }
         setIsClientOnly(true);
       } else {
@@ -63,7 +61,7 @@ export default function ClientDetail({ route, navigation }: { route: any, naviga
   const handleEditContact = async () => {
     if (!editContact) return;
     try {
-  await apiRequest(`https://schirmer-s-notary-backend.onrender.com/contacts/${editContact.id}`, "PUT", {
+      await apiRequest(`https://schirmer-s-notary-backend.onrender.com/clients/${editContact.id}`, "PUT", {
         name: editName,
         email: editEmail,
         company: editCompany,
@@ -80,18 +78,10 @@ export default function ClientDetail({ route, navigation }: { route: any, naviga
   const handleDeleteContact = async () => {
     if (!editContact) return;
     try {
-  await apiRequest(`https://schirmer-s-notary-backend.onrender.com/contacts/${editContact.id}`, "DELETE");
+      await apiRequest(`https://schirmer-s-notary-backend.onrender.com/clients/${editContact.id}`, "DELETE");
       setEditModalVisible(false);
       Alert.alert("Success", "Contact deleted.");
-      // If solo client, navigate back to clients screen to remove card immediately
-      if (isClientOnly) {
-        if (route.params && typeof route.params.onDelete === 'function') {
-          await route.params.onDelete();
-        }
-        navigation.goBack();
-      } else {
-        await fetchContacts();
-      }
+      navigation.goBack();
     } catch (err) {
       Alert.alert("Error", "Failed to delete contact.");
     }
@@ -99,7 +89,7 @@ export default function ClientDetail({ route, navigation }: { route: any, naviga
 
   const handleAddContact = async () => {
     try {
-  await apiRequest("https://schirmer-s-notary-backend.onrender.com/contacts", "POST", {
+      await apiRequest("https://schirmer-s-notary-backend.onrender.com/clients/create", "POST", {
         name: newName,
         email: newEmail,
         company,
@@ -118,8 +108,14 @@ export default function ClientDetail({ route, navigation }: { route: any, naviga
 
   useEffect(() => {
     async function fetchCompanyRequests() {
+      if (!company || company === "Other" || company === "" || company === null) {
+        setCompanyRequests([]);
+        return;
+      }
       try {
-    const res = await apiRequest(`https://schirmer-s-notary-backend.onrender.com/jobs/company/requests/${encodeURIComponent(company)}`);
+        const res = await apiRequest(
+          `https://schirmer-s-notary-backend.onrender.com/jobs/company/requests/${encodeURIComponent(company)}`
+        );
         setCompanyRequests(res.requests || []);
       } catch {
         setCompanyRequests([]);
@@ -133,7 +129,6 @@ export default function ClientDetail({ route, navigation }: { route: any, naviga
     <SafeAreaView style={{ flex: 1, backgroundColor: darkMode ? '#18181b' : '#f9fafb' }}>
       <ScrollView style={{ flex: 1, backgroundColor: darkMode ? '#18181b' : '#f9fafb', padding: 16 }}>
         <View style={{ backgroundColor: darkMode ? '#27272a' : '#fff', padding: 16, borderRadius: 16, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, marginBottom: 16 }}>
-            <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 8, color: darkMode ? '#fff' : '#222' }}>{isClientOnly ? "Client" : company}</Text>
             <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 8, color: darkMode ? '#fff' : '#222' }}>{isClientOnly ? "Client Info" : "Contacts"}</Text>
             {!isClientOnly && (
               <TouchableOpacity style={{ backgroundColor: '#2563eb', borderRadius: 8, padding: 10, marginBottom: 12, alignSelf: 'flex-end' }} onPress={() => setAddModalVisible(true)}>
@@ -143,9 +138,14 @@ export default function ClientDetail({ route, navigation }: { route: any, naviga
             {contacts && contacts.length > 0 ? (
               contacts.map((contact: any) => (
                 <View key={contact.id} style={{ marginBottom: 12 }}>
+                  {contact.company && (
+                    <Text style={{ fontWeight: 'bold', color: darkMode ? '#fff' : '#222' }}>
+                      Company: {typeof contact.company === "object" ? contact.company.name : contact.company}
+                    </Text>
+                  )}
                   <Text style={{ fontSize: 18, fontWeight: 'bold', color: darkMode ? '#fff' : '#222' }}>{contact.name}</Text>
-                  <Text style={{ color: darkMode ? '#d1d5db' : '#6b7280' }}>{contact.email}</Text>
-                  {!isClientOnly && contact.phone && (
+                  <Text style={{ color: darkMode ? '#d1d5db' : '#6b7280' }}>Email: {contact.email}</Text>
+                  {contact.phone && (
                     <Text style={{ color: darkMode ? '#d1d5db' : '#6b7280' }}>Phone: {contact.phone}</Text>
                   )}
                   <TouchableOpacity style={{ backgroundColor: '#2563eb', borderRadius: 8, padding: 8, marginTop: 8 }} onPress={() => openEditModal(contact)}>

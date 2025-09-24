@@ -5,7 +5,6 @@ import { useNavigation } from '@react-navigation/native';
 import apiRequest from "../../api";
 import DropDownPicker from 'react-native-dropdown-picker';
 import { Picker } from '@react-native-picker/picker';
-// ...existing code...
 import { useTheme } from "../../constants/ThemeContext";
 
 interface Appointment {
@@ -17,15 +16,27 @@ interface Appointment {
 
 interface RequestItem {
   id: number;
+  client_id: number;
+  service: string;
+  urgency: string;
+  date: string;
+  time: string;
+  location: string;
+  notes: string;
+  journal_id: number;
+}
+
+interface Client {
+  id: number;
   name: string;
-  status: string;
+  company?: { name?: string } | string | null;
 }
 
 export default function Dashboard() {
   const [customDropdownOpen, setCustomDropdownOpen] = useState(false);
   const customDropdownOptions = [
     { label: 'Expense', value: 'expense' },
-    { label: 'Profit', value: 'earning' }
+    { label: 'Profit', value: 'profit' }
   ];
   const navigation = useNavigation();
   const { darkMode } = useTheme();
@@ -47,8 +58,10 @@ export default function Dashboard() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [dropdownItems, setDropdownItems] = useState([
     { label: 'Expense', value: 'expense' },
-    { label: 'Profit', value: 'earning' }
+    { label: 'Profit', value: 'profit' }
   ]);
+  const [clients, setClients] = useState<Client[]>([]);
+
 
   useEffect(() => {
     async function fetchDashboardData() {
@@ -58,7 +71,7 @@ export default function Dashboard() {
         const appointmentsData = await apiRequest("https://schirmer-s-notary-backend.onrender.com/calendar/local", "GET", null, { "X-User-Id": String(userId) });
         const requestsData = await apiRequest("https://schirmer-s-notary-backend.onrender.com/jobs/pending", "GET", null, { "X-User-Id": String(userId) });
         setAppointments(Array.isArray(appointmentsData) ? appointmentsData : []);
-        setRequests(requestsData || []);
+        setRequests(Array.isArray(requestsData) ? requestsData : []);
       } catch (err) {
         if (err instanceof Error) {
           setError(err.message);
@@ -73,10 +86,33 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
+    async function fetchClients() {
+      try {
+        const data = await apiRequest("https://schirmer-s-notary-backend.onrender.com/clients/all", "GET", null, { "X-User-Id": String(userId) });
+        setClients(Array.isArray(data.clients) ? data.clients : []);
+      } catch (err) {
+      }
+    }
+    fetchClients();
+  }, []);
+
+  function getClientName(client_id: number): string {
+    const client = clients.find(c => c.id === client_id);
+    if (!client) return `Client #${client_id}`;
+    if (client.company && typeof client.company === "object" && client.company.name) {
+      return client.company.name;
+    }
+    if (typeof client.company === "string" && client.company.trim()) {
+      return client.company;
+    }
+    return client.name || `Client #${client_id}`;
+  }  
+
+  useEffect(() => {
     async function fetchMileage() {
       try {
-  const mileageData = await apiRequest("https://schirmer-s-notary-backend.onrender.com/mileage/weekly", "GET", null, { "X-User-Id": String(userId) });
-        setMileage(mileageData.weekly_mileage || 0);
+    const mileageData = await apiRequest("https://schirmer-s-notary-backend.onrender.com/mileage/weekly", "GET", null, { "X-User-Id": String(userId) });
+        setMileage(mileageData.weekly_mileage.toFixed(2) || 0);
       } catch (err) {
         console.error(err);
       }
@@ -105,7 +141,6 @@ export default function Dashboard() {
       setClientEmail("");
       setCompany("");
       Alert.alert("Success", "Client added successfully.");
-      // Optionally refresh client list here
     } catch (err) {
   Alert.alert("Error", typeof err === 'string' ? err : (err && (err as any).message ? (err as any).message : "Failed to add client."));
     }
@@ -136,7 +171,23 @@ export default function Dashboard() {
         <Text style={{ color: darkMode ? '#d1d5db' : '#6b7280', marginBottom: 24 }}>{new Date().toDateString()}</Text>
 
         <TouchableOpacity
-            onPress={() => (navigation as any).navigate("More", { screen: "Calendar" })}
+          onPress={() => {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = today.getMonth();
+            const day = today.getDate();
+            navigation.navigate({
+              name: "More",
+              params: {
+                screen: "Calendar",
+                params: {
+                  selectedYear: year,
+                  selectedMonth: month,
+                  selectedDay: day,
+                }
+              }
+            } as never);
+          }}
         >
         <View style={{ backgroundColor: darkMode ? '#27272a' : '#fff', padding: 16, borderRadius: 16, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, marginBottom: 16 }}>
           <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 12, color: darkMode ? '#fff' : '#222' }}>Today's Appointments</Text>
@@ -157,10 +208,10 @@ export default function Dashboard() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => navigation.navigate("Requests" as never)}
+          onPress={() => navigation.navigate("Jobs" as never)}
         >
         <View style={{ backgroundColor: darkMode ? '#27272a' : '#fff', padding: 16, borderRadius: 16, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, marginBottom: 16 }}>
-          <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 12, color: darkMode ? '#fff' : '#222' }}>Recent Requests</Text>
+          <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 12, color: darkMode ? '#fff' : '#222' }}>Recent Bookings</Text>
           {loading ? (
             <Text style={{ color: darkMode ? '#d1d5db' : '#6b7280' }}>Loading...</Text>
           ) : error ? (
@@ -170,7 +221,7 @@ export default function Dashboard() {
           ) : (
             requests.map((req) => (
               <Text key={req.id} style={{ color: darkMode ? '#d1d5db' : '#222' }}>
-                {req.name} - {req.status}
+                {getClientName(req.client_id)} - {req.service} ({req.urgency}) {req.date} {req.time}
               </Text>
             ))
           )}

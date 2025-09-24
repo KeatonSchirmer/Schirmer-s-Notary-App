@@ -4,50 +4,22 @@ import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiRequest from "../../api";
 import { useTheme } from "../../constants/ThemeContext";
+import Constants from 'expo-constants';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 export default function SettingsScreen({ navigation, setLoggedIn }: { navigation?: any; setLoggedIn?: (val: boolean) => void }) {
   const { darkMode, setDarkMode } = useTheme();
-  const handleLogout = async () => {
-    await AsyncStorage.removeItem('token');
-    if (typeof setLoggedIn === 'function') setLoggedIn(false);
-    Alert.alert("Logged Out", "You have been logged out.");
-  };
   const [notifications, setNotifications] = useState(false);
-
-  useEffect(() => {
-    (async () => {
-      const stored = await AsyncStorage.getItem('notifications_enabled');
-      if (stored !== null) setNotifications(stored === 'true');
-    })();
-  }, []);
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
-  useEffect(() => {
-    if (notifications) {
-      registerForPushNotificationsAsync();
-    }
-  }, [notifications]);
-
-  async function registerForPushNotificationsAsync() {
-    try {
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
-      if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-      if (finalStatus !== 'granted') {
-        Alert.alert('Permission required', 'Enable notifications in settings.');
-        return;
-      }
-      const tokenData = await Notifications.getExpoPushTokenAsync();
-      setExpoPushToken(tokenData.data);
-  await apiRequest('https://schirmer-s-notary-backend.onrender.com/auth/profile/update', 'PATCH', { push_token: tokenData.data } as any, { 'X-User-Id': String(userId) });
-    } catch (err) {
-  const errorMsg = (err && typeof err === 'object' && 'message' in err) ? (err as any).message : JSON.stringify(err);
-  Alert.alert('Error', `Could not register for notifications: ${errorMsg}`);
-      console.log('Notification registration error:', err);
-    }
-  }
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -56,7 +28,7 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [show2FAEmailSent, setShow2FAEmailSent] = useState(false);
   const [confirmationCode, setConfirmationCode] = useState("");
-   const [accountInfo, setAccountInfo] = useState({
+  const [accountInfo, setAccountInfo] = useState({
     name: "",
     email: "",
     address: "",
@@ -67,7 +39,49 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
   const [showEditAccountModal, setShowEditAccountModal] = useState(false);
   const [editAccount, setEditAccount] = useState(accountInfo);
 
-  const userId = 1; 
+  const userId = 1;
+
+  useEffect(() => {
+    (async () => {
+      const stored = await AsyncStorage.getItem('notifications_enabled');
+      if (stored !== null) setNotifications(stored === 'true');
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (notifications) {
+      registerForPushNotificationsAsync();
+    }
+  }, [notifications]);
+
+  async function registerForPushNotificationsAsync() {
+    try {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      if (existingStatus !== "granted") {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      if (finalStatus !== "granted") {
+        Alert.alert("Permission required", "Enable notifications in settings.");
+        return;
+      }
+      const tokenData = await Notifications.getExpoPushTokenAsync({
+        projectId: Constants.expoConfig?.extra?.eas?.projectId,
+      });
+      console.log("Expo Push Token:", tokenData.data);
+      setExpoPushToken(tokenData.data);
+      await apiRequest(
+        "https://schirmer-s-notary-backend.onrender.com/auth/profile/update",
+        "PATCH",
+        { push_token: tokenData.data },
+        { "X-User-Id": String(userId) }
+      );
+    } catch (err) {
+      console.log("Notification registration error:", err);
+      Alert.alert("Error", "Could not register for notifications.");
+    }
+  }
 
   useEffect(() => {
     async function fetchAccountInfo() {
@@ -94,14 +108,34 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
           license_expiration: res.license_expiration || "",
           password: "********",
         });
-      } catch {
-        // fallback: do nothing
-      }
+      } catch {}
     }
     fetchAccountInfo();
   }, []);
 
-  // Edit account handler
+  useEffect(() => {
+    async function fetch2FAStatus() {
+      try {
+        const res = await apiRequest(
+          "https://schirmer-s-notary-backend.onrender.com/auth/twofa/status",
+          "GET",
+          null,
+          { 'X-User-Id': String(userId) }
+        );
+        setTwoFactorEnabled(res.twofa_verified === true);
+      } catch {
+        setTwoFactorEnabled(false);
+      }
+    }
+    fetch2FAStatus();
+  }, []);
+
+  const handleLogout = async () => {
+    await AsyncStorage.removeItem('token');
+    if (typeof setLoggedIn === 'function') setLoggedIn(false);
+    Alert.alert("Logged Out", "You have been logged out.");
+  };
+
   const handleEditAccount = async () => {
     try {
       await apiRequest(
@@ -127,7 +161,7 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
   const handleRequest2FA = async () => {
     try {
       await apiRequest(
-        'https://schirmer-s-notary-backend.onrender.com/auth/twofa/request', // <-- updated endpoint
+        'https://schirmer-s-notary-backend.onrender.com/auth/twofa/request',
         'POST',
         null,
         { 'X-User-Id': String(userId) }
@@ -142,7 +176,7 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
   const handleConfirm2FA = async () => {
     try {
       await apiRequest(
-        'https://schirmer-s-notary-backend.onrender.com/auth/twofa/confirm', // <-- updated endpoint
+        'https://schirmer-s-notary-backend.onrender.com/auth/twofa/confirm',
         'POST',
         { code: confirmationCode },
         { 'X-User-Id': String(userId) }
@@ -161,7 +195,7 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
     setNotifications(value);
     await AsyncStorage.setItem('notifications_enabled', value ? 'true' : 'false');
     try {
-  await apiRequest('https://schirmer-s-notary-backend.onrender.com/auth/profile/update', 'PATCH', { notifications_enabled: value } as any, { 'X-User-Id': String(userId) });
+      await apiRequest('https://schirmer-s-notary-backend.onrender.com/auth/profile/update', 'PATCH', { notifications_enabled: value } as any, { 'X-User-Id': String(userId) });
       if (value) {
         await registerForPushNotificationsAsync();
       } else {
@@ -171,10 +205,6 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
     } catch (err) {
       Alert.alert("Error", "Failed to update notifications.");
     }
-  };
-
-  const handleToggleDarkMode = (value: boolean) => {
-  setDarkMode(value);
   };
 
   const handleDeleteAccount = async () => {
@@ -201,12 +231,14 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: darkMode ? "#18181b" : "#f9fafb", padding: 16 }}>
+      {/* Account Card */}
       <View style={{ backgroundColor: darkMode ? "#27272a" : "#fff", borderRadius: 16, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 8, padding: 24, marginBottom: 24, alignItems: "center" }}>
         <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: "#16a34a", marginBottom: 12 }} />
         <Text style={{ fontSize: 20, fontWeight: "bold", color: darkMode ? "#fff" : "#222" }}>Keaton Schirmer</Text>
         <Text style={{ color: darkMode ? "#d1d5db" : "#6b7280" }}>Schirmer's Notary</Text>
       </View>
 
+      {/* Account Info Card */}
       <View style={{
         backgroundColor: darkMode ? "#27272a" : "#fff",
         borderRadius: 16,
@@ -233,8 +265,24 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
         </TouchableOpacity>
       </View>
 
+      {/* Preferences Card */}
       <View style={{ backgroundColor: darkMode ? "#27272a" : "#fff", borderRadius: 16, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 8, padding: 16, marginBottom: 24 }}>
         <Text style={{ fontSize: 18, fontWeight: "600", marginBottom: 12, color: darkMode ? "#fff" : "#222" }}>Preferences</Text>
+        {/* 2FA */}
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: darkMode ? "#444" : "#e5e7eb" }}>
+          <Text style={{ color: darkMode ? "#fff" : "#222" }}>Two-Factor Authentication</Text>
+          {twoFactorEnabled ? (
+            <Text style={{ color: "#16a34a", fontWeight: "bold" }}>Enabled</Text>
+          ) : (
+            <TouchableOpacity
+              style={{ backgroundColor: "#16a34a", borderRadius: 8, paddingHorizontal: 16, paddingVertical: 6 }}
+              onPress={() => setShow2FAModal(true)}
+            >
+              <Text style={{ color: "#fff", fontWeight: "bold" }}>Enable</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        {/* Notifications */}
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: darkMode ? "#444" : "#e5e7eb" }}>
           <Text style={{ color: darkMode ? "#fff" : "#222" }}>Enable Notifications</Text>
           <Switch
@@ -243,6 +291,7 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
             trackColor={{ true: "#16a34a", false: "#d1d5db" }}
           />
         </View>
+        {/* Dark Mode */}
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 8 }}>
           <Text style={{ color: darkMode ? "#fff" : "#222" }}>Dark Mode</Text>
           <Switch
@@ -253,6 +302,7 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
         </View>
       </View>
 
+      {/* Danger Zone */}
       <View style={{ backgroundColor: darkMode ? "#fee2e2" : "#fee2e2", borderRadius: 16, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 8, padding: 16, marginBottom: 24 }}>
         <Text style={{ fontSize: 18, fontWeight: "600", marginBottom: 12, color: "#b91c1c" }}>Danger Zone</Text>
         <TouchableOpacity style={{ paddingVertical: 8 }} onPress={handleDeleteAccount}>
@@ -260,6 +310,7 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
         </TouchableOpacity>
       </View>
 
+      {/* Logout */}
       <TouchableOpacity
         style={{ backgroundColor: darkMode ? '#ef4444' : '#ef4444', borderRadius: 16, padding: 16, alignItems: 'center', marginBottom: 32 }}
         onPress={handleLogout}
@@ -267,6 +318,7 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
         <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Logout</Text>
       </TouchableOpacity>
 
+      {/* Edit Account Modal */}
       <Modal visible={showEditAccountModal} transparent animationType="slide">
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#00000088" }}>
           <View style={{ backgroundColor: darkMode ? "#27272a" : "#fff", padding: 20, borderRadius: 10, width: "80%" }}>
@@ -314,6 +366,7 @@ export default function SettingsScreen({ navigation, setLoggedIn }: { navigation
         </View>
       </Modal>
 
+      {/* 2FA Modal */}
       <Modal visible={show2FAModal} transparent animationType="slide">
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#00000088" }}>
           <View style={{ backgroundColor: darkMode ? "#27272a" : "#fff", padding: 20, borderRadius: 10, width: "80%" }}>

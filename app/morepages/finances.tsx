@@ -7,7 +7,7 @@ import { useTheme } from "../../constants/ThemeContext";
 
 type Finance = {
   id: number;
-  type: "earning" | "expense";
+  type: "profit" | "expense";
   category: string;
   description?: string;
   amount: number;
@@ -20,13 +20,13 @@ export default function FinancesScreen() {
   const [customDropdownOpen, setCustomDropdownOpen] = useState(false);
   const customDropdownOptions = [
     { label: 'Expense', value: 'expense' },
-    { label: 'Profit', value: 'earning' }
+    { label: 'Profit', value: 'profit' }
   ];
   // Custom dropdown state for Edit modal
   const [editCustomDropdownOpen, setEditCustomDropdownOpen] = useState(false);
   const editCustomDropdownOptions = [
     { label: 'Expense', value: 'expense' },
-    { label: 'Profit', value: 'earning' }
+    { label: 'Profit', value: 'profit' }
   ];
   const { darkMode } = useTheme();
   const [finances, setFinances] = useState<Finance[]>([]);
@@ -39,7 +39,7 @@ export default function FinancesScreen() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [dropdownItems, setDropdownItems] = useState([
     { label: 'Expense', value: 'expense' },
-    { label: 'Profit', value: 'earning' }
+    { label: 'Profit', value: 'profit' }
   ]);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editFinance, setEditFinance] = useState<Finance | null>(null);
@@ -50,12 +50,12 @@ export default function FinancesScreen() {
   const [editDropdownOpen, setEditDropdownOpen] = useState(false);
   const [editDropdownItems, setEditDropdownItems] = useState([
     { label: 'Expense', value: 'expense' },
-    { label: 'Profit', value: 'earning' }
+    { label: 'Profit', value: 'profit' }
   ]);
 
   const fetchFinances = () => {
     setLoading(true);
-  apiRequest("https://schirmer-s-notary-backend.onrender.com/finances", "GET")
+  apiRequest("https://schirmer-s-notary-backend.onrender.com/finances/", "GET")
       .then((data) => setFinances(data))
       .catch(() => setFinances([]))
       .finally(() => setLoading(false));
@@ -122,7 +122,7 @@ export default function FinancesScreen() {
     }
   };
 
-  const earnings = finances.filter((f) => f.type === "earning");
+  const earnings = finances.filter((f) => f.type === "profit");
   const expenses = finances.filter((f) => f.type === "expense");
   const totalEarnings = earnings.reduce((sum, f) => sum + f.amount, 0);
   const totalExpenses = expenses.reduce((sum, f) => sum + f.amount, 0);
@@ -219,8 +219,8 @@ export default function FinancesScreen() {
         finances.map((f) => (
           <View key={f.id} style={{ backgroundColor: darkMode ? '#27272a' : '#fff', padding: 16, borderRadius: 16, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, marginBottom: 8 }}>
             <Text style={{ fontWeight: '500', color: darkMode ? '#fff' : '#222' }}>{f.category}</Text>
-            <Text style={{ fontSize: 14, color: f.type === 'earning' ? '#22c55e' : '#ef4444' }}>
-              {f.type === "earning" ? "+" : "-"} ${f.amount.toFixed(2)} — {new Date(f.date).toLocaleDateString()}
+            <Text style={{ fontSize: 14, color: f.type === 'profit' ? '#22c55e' : '#ef4444' }}>
+              {f.type === "profit" ? "+" : "-"} ${f.amount.toFixed(2)} — {new Date(f.date).toLocaleDateString()}
             </Text>
             {f.description && (
               <Text style={{ fontSize: 12, color: darkMode ? '#d1d5db' : '#6b7280', marginTop: 4 }}>{f.description}</Text>
